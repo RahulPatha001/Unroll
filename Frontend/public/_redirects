@@ -1,0 +1,4 @@
+# SPA fallback. Cloudflare Pages serves this for any path that is not a real file,
+# so a shared deep link like /?algo=dijkstra&frame=812 resolves to index.html
+# instead of a 404. Harmless on hosts that ignore it.
+/*    /index.html   200

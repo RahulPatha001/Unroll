@@ -1,0 +1,40 @@
+{
+  "name": "Unroll — step through an algorithm, line by line",
+  "short_name": "Unroll",
+  "description": "Unroll an algorithm one step at a time, with the exact line of Python, Java, C++ or JavaScript highlighted and explained. Every listing is executed and diffed.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#020617",
+  "orientation": "any",
+  "categories": ["education", "developer", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Bubble Sort",
+      "url": "/?algo=bubble-sort"
+    },
+    {
+      "name": "Merge Sort",
+      "url": "/?algo=merge-sort"
+    },
+    {
+      "name": "Dijkstra",
+      "url": "/?algo=dijkstra"
+    }
+  ]
+}

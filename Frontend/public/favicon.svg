@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Unroll">
+  <title>Unroll</title>
+  <!--
+    A paused frame of the product: a row of array cells with a named pointer over
+    the one the algorithm is looking at right now.
+
+    Three cells, and the two outer ones carry the meaning — lighter is *walked*,
+    darker is *not reached yet* — so the icon reads as "step 2 of 3" rather than as
+    the bar chart every dashboard uses. The amber is the colour this app reserves
+    everywhere for the current cell, so the mark and the product agree.
+
+    ## Two sizing decisions, both settled by rendering it and looking
+
+    **The glow is a 0.5 blur, not 1.2.** It is the only decoration in the file and it
+    was nearly a decoration that cost the mark its small sizes. The cells are 6
+    units wide with 2.5-unit gaps; a 1.2 blur bleeds about half a pixel into each
+    side of every gap at a 16x16 render, and the row stopped being three cells — it
+    became one amber blob with grey edges. At 48px that same blur is the best-looking
+    version, which is exactly what makes it dangerous: a change that improves the
+    screenshot and ruins the favicon. At 0.5 the 16px row is three distinct cells and
+    the 48px version still has a warm halo. SVG cannot branch on rendered size, so the
+    value has to be safe at the smallest one.
+
+    **The pointer is 6.2 units wide, not 8.8.** A wide triangle reads as a dart or an
+    arrowhead; narrower, with the stem below it, it reads as the cursor this app
+    actually draws above the cell it is inspecting.
+
+    The cells stay equal height on purpose. An earlier idea made them a staircase to
+    suggest progress, and it was dropped: every array cell this app draws is the same
+    height, so uneven cells would make the logo misrepresent the thing it depicts.
+  -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1e293b" />
+      <stop offset="1" stop-color="#0f172a" />
+    </linearGradient>
+    <linearGradient id="cell-active" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbbf24" />
+      <stop offset="1" stop-color="#f59e0b" />
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="0.5" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="31" height="31" rx="9" fill="url(#bg)" stroke="#334155" stroke-width="1" />
+
+  <!-- the named cursor: a triangle over a short stem -->
+  <path d="M12.9 9.2 L16 5 L19.1 9.2 Z" fill="#fbbf24" stroke="#f59e0b" stroke-width="0.4" stroke-linejoin="round" />
+  <rect x="15.2" y="9.2" width="1.6" height="2.6" rx="0.4" fill="#fbbf24" />
+
+  <!-- walked · current · not reached -->
+  <rect x="4.5" y="15" width="6" height="11" rx="1.5" fill="#475569" />
+  <rect x="13" y="15" width="6" height="11" rx="1.5" fill="url(#cell-active)" filter="url(#glow)" />
+  <rect x="21.5" y="15" width="6" height="11" rx="1.5" fill="#1e293b" stroke="#334155" stroke-width="0.5" />
+</svg>

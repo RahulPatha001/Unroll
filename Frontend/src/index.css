@@ -1,0 +1,175 @@
+@import "tailwindcss";
+
+/*
+ * The theme is declared in CSS rather than JS (Tailwind 4's `@theme`) so there
+ * is no colour configuration to keep in sync with the markup, and so the
+ * viewport can be styled with the same tokens the components use.
+ */
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply text-slate-100 antialiased;
+    font-family: var(--font-sans);
+    /* The app is a fixed-viewport player; page-level scrolling would fight the
+       layout and make the transport bar unreachable on short screens. */
+    overflow: hidden;
+  }
+
+  /* A visible focus ring everywhere, because the whole app is keyboard-driven
+     and a student stepping through steps with arrows must always know where
+     they are. */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-amber-400;
+  }
+
+  ::-webkit-scrollbar {
+    @apply h-2 w-2;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-slate-900;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-slate-700;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-500;
+  }
+}
+
+/*
+ * `prefers-reduced-motion` is honoured as a hard rule, not a nicety: this app's
+ * entire purpose is motion, so for a student who gets vestibular symptoms from
+ * animation it is the difference between usable and unusable. The layout stays
+ * identical; only the transitions stop.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* The range input needs explicit thumb styling; the default is nearly invisible
+   on a dark background. */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 9999px;
+  background: #fbbf24;
+  cursor: pointer;
+  border: 3px solid #0f172a;
+  box-shadow: 0 0 8px rgb(251 191 36 / 0.35);
+  transition: box-shadow 150ms ease;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 14px rgb(251 191 36 / 0.5);
+}
+input[type="range"]::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 9999px;
+  background: #fbbf24;
+  cursor: pointer;
+  border: 3px solid #0f172a;
+  box-shadow: 0 0 8px rgb(251 191 36 / 0.35);
+  transition: box-shadow 150ms ease;
+}
+input[type="range"]::-moz-range-thumb:hover {
+  box-shadow: 0 0 14px rgb(251 191 36 / 0.5);
+}
+
+/* ------------------------------------------------------------------ *
+ * Motion
+ *
+ * A handful of keyframes, written here rather than pulled from an animation
+ * library. Framer Motion is installed but unused, and adding ~35 kB gzip to a
+ * 75 kB bundle to fade a paragraph in would be a poor trade: these three effects
+ * are the entire motion vocabulary of the shell.
+ *
+ * All of them are neutral (opacity and a few pixels) on purpose. Anything that
+ * moved a *layout* box would reintroduce the twitch this app is specifically
+ * built to avoid, and anything spinning or scaling would fight the viewport,
+ * where the only motion that belongs is the algorithm's own.
+ * ------------------------------------------------------------------ */
+
+/** The step sentence arriving. Remounted per step by `key={index}`. */
+@keyframes note-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/** Dialogs. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/** The active code line picking up its highlight. */
+@keyframes line-flash {
+  from {
+    background-color: rgb(251 191 36 / 0.28);
+  }
+  to {
+    background-color: rgb(251 191 36 / 0.1);
+  }
+}
+
+@utility note-enter {
+  animation: note-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility pop-in {
+  animation: pop-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility line-flash {
+  animation: line-flash 600ms ease-out both;
+}
+
+/**
+ * The app backdrop.
+ *
+ * A single very soft radial wash in the corner plus a faint grid. It exists to
+ * stop the three panels reading as three grey boxes on a grey page — the panels
+ * are the content, and a flat field behind them gives the eye nothing to hold
+ * on to. Two radial gradients cost nothing and are painted once.
+ */
+@utility app-backdrop {
+  background-color: #020617;
+  background-image:
+    radial-gradient(70rem 50rem at 8% -12%, rgb(251 191 36 / 0.08), transparent 55%),
+    radial-gradient(60rem 42rem at 102% -8%, rgb(56 189 248 / 0.07), transparent 50%),
+    radial-gradient(50rem 40rem at 50% 110%, rgb(99 102 241 / 0.05), transparent 55%),
+    linear-gradient(to bottom, rgb(15 23 42 / 0.45), transparent 35rem);
+}

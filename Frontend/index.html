@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Unroll — step through an algorithm, with the line that's running highlighted</title>
+    <meta
+      name="description"
+      content="Unroll an algorithm one step at a time, with the exact line of Python, Java, C++ or JavaScript highlighted and explained. Every listing is executed and diffed, so the four agree."
+    />
+    <meta name="theme-color" content="#0f172a" />
+
+    <!--
+      Offline support. A visualiser is at its most useful exactly when a student
+      is on a train with no signal, and the entire app is static, so a service
+      worker that caches the shell buys real utility for about forty lines.
+
+      Registered from the app rather than inlined here so the script is a separate
+      cacheable file and the HTML stays readable.
+    -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

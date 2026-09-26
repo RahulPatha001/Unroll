@@ -1,0 +1,172 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
+  "vcs": { "enabled": false, "clientKind": "git", "useIgnoreFile": true },
+  "files": {
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/coverage",
+      "!**/test-results",
+      "!**/playwright-report",
+      "!**/.tmp-verify"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "correctness": {
+        "noUnusedVariables": "error",
+        "noUnusedImports": "error"
+      },
+      "suspicious": {
+        "noExplicitAny": "error",
+        "noConsole": {
+          "level": "error",
+          "options": { "allow": ["warn", "error"] }
+        }
+      },
+      "style": {
+        "noNonNullAssertion": "error",
+        "useConst": "error"
+      }
+    }
+  },
+  "css": {
+    // `@apply` is Tailwind v4's whole styling model, so the parser has to
+    // understand it or every rule in `index.css` reads as a syntax error.
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["src/core/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedGlobals": {
+              "level": "error",
+              "options": {
+                "deniedGlobals": {
+                  "Math.random": "core/ must stay deterministic — use the seeded RNG in core/input/rng.ts"
+                }
+              }
+            },
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "react",
+                      "react-dom",
+                      "react-dom/*",
+                      "react/jsx-runtime",
+                      "react-router",
+                      "zustand",
+                      "motion",
+                      "shiki",
+                      "lucide-react"
+                    ],
+                    "message": "src/core/ is a hard boundary: no React, no router, no animation, no DOM. It must stay runnable in a Worker and testable in plain Node. Rendering lives in src/features/viewport/."
+                  },
+                  {
+                    "group": ["node:*", "fs", "path", "child_process"],
+                    "message": "core/ runs in the browser. Anything that spawns a process belongs in tools/verify/, which is a dev-time Node harness and is never bundled."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      // In test files, `notes['compare']` and `trace[0]['note']` are how you
+      // assert on a record keyed by anchor name. That is the data model of this
+      // project, not a style slip, and the rule fires on every such assertion.
+      // The rest of lint still gates CI.
+      "includes": ["**/*.test.ts", "**/*.parity.test.ts"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "useLiteralKeys": "off"
+          }
+        }
+      }
+    },
+    {
+      // The two tests that *enforce* filesystem-shaped rules have to read from
+      // disk themselves: `boundary.test.ts` scans `core/` for Node imports, and
+      // `contract.test.ts` lists the algorithm directory to catch a module nobody
+      // registered. Everything else in `core/` is still denied.
+      "includes": ["src/core/boundary.test.ts", "src/core/algorithms/contract.test.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": "off"
+          }
+        }
+      }
+    },
+    {
+      // The `prefers-reduced-motion` block is the one place `!important` is
+      // correct: the whole point is to override transitions that individual
+      // components may set at higher specificity, and a student who needs this
+      // cannot also be asked to audit the specificity of every rule in the app.
+      "includes": ["src/index.css"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noImportantStyles": "off"
+          }
+        }
+      }
+    },
+    {
+      // Index keys are correct in a visualiser: a cell's identity *is* its
+      // position, and a frame is a snapshot of fixed slots. The rule targets
+      // lists whose items reorder, which is not what an array viewport is.
+      "includes": ["**/viewport/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noArrayIndexKey": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "tools/**",
+        "tests/**",
+        "playwright.config.ts",
+        "vitest.config.ts",
+        "vite.config.ts"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    }
+  ]
+}
