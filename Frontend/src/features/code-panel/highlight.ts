@@ -76,36 +76,58 @@ async function ensureLang(lang: Lang): Promise<void> {
 
 const cache = new Map<string, string>();
 
+/**
+ * Why a listing is not showing colours, which `string | null` cannot say.
+ *
+ * `pending` and `unavailable` render identically — plain monospace text, by
+ * design — but they are not the same event, and conflating them costs two real
+ * things. The visual-regression suite needs to tell them apart: a `pending`
+ * screenshot is a race it must wait out, whereas an `unavailable` one is a
+ * genuine fallback it should record. And "Shiki fails to load, plain text, no
+ * crash" is a documented guarantee, which a guarantee nobody can observe is not
+ * a guarantee.
+ */
+export type HighlightStatus = 'ready' | 'pending' | 'unavailable';
+
+export interface HighlightResult {
+  html: string | null;
+  status: HighlightStatus;
+}
+
 /** Tokenise `source` for `lang`, memoised by (lang, source). */
-export function useHighlighted(lang: Lang, source: string): string | null {
-  const [html, setHtml] = useState<string | null>(() => cache.get(`${lang}:${source}`) ?? null);
+export function useHighlighted(lang: Lang, source: string): HighlightResult {
+  const key = `${lang}:${source}`;
+  const [result, setResult] = useState<HighlightResult>(() => {
+    const hit = cache.get(key);
+    return hit === undefined ? { html: null, status: 'pending' } : { html: hit, status: 'ready' };
+  });
 
   useEffect(() => {
-    const key = `${lang}:${source}`;
     const hit = cache.get(key);
     if (hit !== undefined) {
-      setHtml(hit);
+      setResult({ html: hit, status: 'ready' });
       return;
     }
     let cancelled = false;
+    setResult({ html: null, status: 'pending' });
     void ensureLang(lang)
       .then(() => getCore())
       .then((hl) => hl.codeToHtml(source, { lang, theme: 'github-dark-default' }))
       .then((out) => {
         if (cancelled) return;
         cache.set(key, out);
-        setHtml(out);
+        setResult({ html: out, status: 'ready' });
       })
       .catch(() => {
         // Highlighting is decoration. If it fails, plain text is a fine outcome.
-        if (!cancelled) setHtml(null);
+        if (!cancelled) setResult({ html: null, status: 'unavailable' });
       });
     return () => {
       cancelled = true;
     };
-  }, [lang, source]);
+  }, [key, lang, source]);
 
-  return html;
+  return result;
 }
 
 /** Discard cached HTML. Only needed if a theme is added at runtime. */
@@ -159,7 +181,7 @@ export const HighlightedLines = memo(function HighlightedLines({
   onLineClick?: (line: number) => void;
   className?: string;
 }) {
-  const html = useHighlighted(lang, source);
+  const { html, status } = useHighlighted(lang, source);
   const lines = useMemo(() => (html ? splitLines(html) : null), [html]);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -179,6 +201,14 @@ export const HighlightedLines = memo(function HighlightedLines({
     'div',
     {
       ref: containerRef,
+      /*
+       * The loading state, observable. Nothing renders differently because of
+       * it — it exists so a test can tell "still fetching the grammar" (wait for
+       * it) from "the grammar failed and this is the plain-text fallback" (that
+       * is the answer, stop waiting). Without it the visual baselines race
+       * Shiki on every single capture.
+       */
+      'data-highlighted': status,
       // `h-full` is load-bearing, not decoration.
       //
       // This is the scroll container, and a block-level scroll container only
@@ -221,7 +251,7 @@ export const HighlightedLines = memo(function HighlightedLines({
                     // each step. A plain background colour reads as "selected";
                     // a brief flare reads as "this one, just now", which is the
                     // thing the student is actually watching for.
-                    'line-flash border-amber-400 bg-amber-400/10'
+                    'line-flash border-accent bg-accent/10'
                   : 'border-transparent hover:bg-white/[0.03]',
               ].join(' '),
             },
@@ -230,7 +260,7 @@ export const HighlightedLines = memo(function HighlightedLines({
               {
                 className: [
                   'w-9 shrink-0 select-none pr-2 text-right text-[10.5px] tabular-nums',
-                  active ? 'text-amber-300' : 'text-slate-600',
+                  active ? 'text-accent-hover' : 'text-text-faint',
                 ].join(' '),
               },
               String(n),

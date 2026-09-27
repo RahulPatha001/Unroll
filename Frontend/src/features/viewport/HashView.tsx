@@ -25,22 +25,22 @@ export const HashView = memo(function HashView({ frame }: { frame: HashFrame }) 
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-slate-400">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 text-[10px] text-text-muted">
         <span>
-          <span className="font-medium text-slate-300">size</span> {frame.size}
+          <span className="font-medium text-text-muted">size</span> {frame.size}
         </span>
         <span>
-          <span className="font-medium text-slate-300">capacity</span> {frame.capacity}
+          <span className="font-medium text-text-muted">capacity</span> {frame.capacity}
         </span>
         <span>
-          <span className="font-medium text-slate-300">load factor</span>{' '}
-          <span className={load > 0.75 ? 'font-bold text-rose-400' : 'tabular-nums'}>
+          <span className="font-medium text-text-muted">load factor</span>{' '}
+          <span className={load > 0.75 ? 'font-bold text-danger' : 'tabular-nums'}>
             {load.toFixed(2)}
           </span>
           {load > 0.75 ? ' — time to resize' : ''}
         </span>
         {frame.probeNote ? (
-          <span className="font-mono text-amber-300">{frame.probeNote}</span>
+          <span className="font-mono text-accent-hover">{frame.probeNote}</span>
         ) : null}
       </div>
 
@@ -52,22 +52,24 @@ export const HashView = memo(function HashView({ frame }: { frame: HashFrame }) 
               key={bucket.id}
               className={[
                 'flex w-28 shrink-0 flex-col rounded border transition-colors duration-150',
-                probing ? 'border-amber-400 bg-amber-400/10' : 'border-slate-700 bg-slate-900/40',
+                probing
+                  ? 'border-accent bg-accent/10'
+                  : 'border-border-strong bg-surface-raised/40',
               ].join(' ')}
             >
               <div
                 className={[
                   'border-b px-2 py-1 text-center font-mono text-[10px]',
                   probing
-                    ? 'border-amber-400/50 text-amber-300'
-                    : 'border-slate-700 text-slate-500',
+                    ? 'border-accent/50 text-accent-hover'
+                    : 'border-border-strong text-text-subtle',
                 ].join(' ')}
               >
                 [{bi}]
               </div>
               <div className="flex flex-1 flex-col gap-1 p-1.5">
                 {bucket.entries.length === 0 ? (
-                  <div className="py-2 text-center text-[10px] text-slate-600">—</div>
+                  <div className="py-2 text-center text-[10px] text-text-faint">—</div>
                 ) : null}
                 {bucket.entries.map((e) => {
                   const style = resolveStyle(e.id, frame.highlight);
@@ -95,13 +97,13 @@ export const HashView = memo(function HashView({ frame }: { frame: HashFrame }) 
       </div>
 
       {frame.evicted?.length ? (
-        <div className="shrink-0 text-[10px] text-rose-400">
+        <div className="shrink-0 text-[10px] text-danger">
           rehashed and moved: {frame.evicted.join(', ')}
         </div>
       ) : null}
 
       {legend.length > 0 ? (
-        <ul className="flex shrink-0 flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-400">
+        <ul className="flex shrink-0 flex-wrap gap-x-3 gap-y-1 text-[10px] text-text-muted">
           {legend.map((l) => (
             <li key={l.key} className="flex items-center gap-1.5">
               <span
@@ -111,12 +113,12 @@ export const HashView = memo(function HashView({ frame }: { frame: HashFrame }) 
                   l.style.border,
                 ].join(' ')}
               />
-              <span className="font-medium text-slate-300">{l.key}</span>
+              <span className="font-medium text-text-muted">{l.key}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <div className="shrink-0 text-[10px] text-slate-600">
+        <div className="shrink-0 text-[10px] text-text-faint">
           chains are empty — every bucket is a direct hit
         </div>
       )}

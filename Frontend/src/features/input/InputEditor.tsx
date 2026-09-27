@@ -2,14 +2,15 @@ import { AlertTriangle, Check, Link2, RotateCcw, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { AlgoDef, ParamSpec } from '../../core/algorithms/types.ts';
 import {
-  CANVAS_THRESHOLD,
   type FieldText,
   type GraphOptions,
+  LARGE_INPUT_THRESHOLD,
   paramKeysFrom,
   parseFieldText,
   seedFieldText,
 } from '../../core/input/fields.ts';
 import type { AlgoInput, InputField } from '../../core/input/types.ts';
+import { useCopyLink } from '../../lib/clipboard.ts';
 import { cn } from '../../lib/utils.ts';
 import { usePlayer } from '../player/playerStore.ts';
 
@@ -95,7 +96,7 @@ export function InputEditor({ algo }: { algo: AlgoDef }) {
   if (draft.algoId !== algo.id) setDraft(freshDraft(algo, input));
 
   const { text, graphOpts } = draft;
-  const [copied, setCopied] = useState(false);
+  const { copied, copy: copyLink } = useCopyLink();
   const firstField = useRef<HTMLTextAreaElement | HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -117,6 +118,27 @@ export function InputEditor({ algo }: { algo: AlgoDef }) {
 
   const built = parsed.ok ? algo.inputSpec.build(parsed.values) : null;
   const size = built ? algo.inputSpec.sizeOf(built) : 0;
+
+  /*
+    Which parameter, if any, will throw away part of what was just typed.
+
+    Read off the algorithm's own `params` rather than hardcoded per algorithm,
+    because 28 of them declare a `size` and a list would drift. Compared against
+    the parameter's *current* value, not its default: the student may already
+    have raised it, and warning about a limit they have moved past is the kind of
+    noise that teaches people to ignore warnings.
+
+    Only fires when the input is genuinely longer than the limit. A student who
+    typed 5 values against a default of 8 is fine, which is exactly what the e2e
+    test does, and warning there would be crying wolf.
+  */
+  const params = usePlayer((s) => s.params);
+  const truncating = useMemo(() => {
+    const spec = algo.params.find((p) => p.key === 'size' && p.kind === 'number');
+    if (!spec) return null;
+    const limit = Number(params[spec.key] ?? spec.default);
+    return Number.isFinite(limit) && limit < size ? { label: spec.label, value: limit } : null;
+  }, [algo.params, params, size]);
   const paramKeys = useMemo(
     () =>
       new Set(
@@ -150,49 +172,36 @@ export function InputEditor({ algo }: { algo: AlgoDef }) {
     setOpen(false);
   };
 
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1600);
-    } catch {
-      // A clipboard the browser will not open is not an error worth a dialog;
-      // the address bar already holds a link that reproduces this exact run.
-    }
-  };
-
   return (
     <div
-      className="absolute inset-x-0 bottom-0 z-20 max-h-full overflow-y-auto rounded-t-2xl border border-b-0 border-slate-700/80 bg-slate-900/95 shadow-2xl shadow-black/60 backdrop-blur-md"
+      className="absolute inset-x-0 bottom-0 z-20 max-h-full overflow-y-auto rounded-t-2xl border border-b-0 border-border-strong/80 bg-surface-raised/95 shadow-2xl shadow-black/60 backdrop-blur-md"
       role="dialog"
       aria-label="Custom input"
     >
-      <div className="sticky top-0 flex items-center gap-2 border-b border-slate-800/80 bg-slate-900/95 px-3.5 py-2 backdrop-blur-md">
-        <h2 className="text-[12px] font-bold tracking-wide text-slate-200 uppercase">
-          Your own input
-        </h2>
+      <div className="sticky top-0 flex items-center gap-2 border-b border-border/80 bg-surface-raised/95 px-3.5 py-2 backdrop-blur-md">
+        <h2 className="text-[12px] font-bold tracking-wide text-text uppercase">Your own input</h2>
         {parsed.ok ? (
-          <span className="font-mono text-[10px] text-slate-500 tabular-nums">
+          <span className="font-mono text-[10px] text-text-subtle tabular-nums">
             n = {size}
-            {size > CANVAS_THRESHOLD ? (
-              <span className="ml-1 text-amber-400">· canvas above {CANVAS_THRESHOLD}</span>
+            {size > LARGE_INPUT_THRESHOLD ? (
+              <span className="ml-1 text-accent">· large input</span>
             ) : null}
           </span>
         ) : null}
         <div className="ml-auto flex items-center gap-1.5">
           <button
             type="button"
-            onClick={() => void copyLink()}
-            className="flex items-center gap-1 rounded border border-slate-700 px-1.5 py-0.5 text-[11px] text-slate-400 transition-colors hover:border-slate-600 hover:text-slate-200"
+            onClick={copyLink}
+            className="flex items-center gap-1 rounded border border-border-strong px-1.5 py-0.5 text-[11px] text-text-muted transition-colors hover:border-border-subtle hover:text-text"
             title="Copy a link to this exact run, including your input"
           >
-            {copied ? <Check className="size-3 text-emerald-400" /> : <Link2 className="size-3" />}
+            {copied ? <Check className="size-3 text-success" /> : <Link2 className="size-3" />}
             {copied ? 'copied' : 'copy link'}
           </button>
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="rounded p-1 text-slate-500 transition-colors hover:bg-slate-800 hover:text-slate-300"
+            className="rounded p-1 text-text-subtle transition-colors hover:bg-surface-inset hover:text-text-muted"
             aria-label="Close the custom input editor"
           >
             <X className="size-4" />
@@ -213,7 +222,7 @@ export function InputEditor({ algo }: { algo: AlgoDef }) {
         ))}
 
         {hasGraph ? (
-          <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400">
+          <div className="flex flex-wrap items-center gap-3 text-[11px] text-text-muted">
             <Toggle
               label="directed"
               checked={graphOpts.directed}
@@ -234,20 +243,51 @@ export function InputEditor({ algo }: { algo: AlgoDef }) {
         ) : null}
 
         {!parsed.ok ? (
-          <p className="flex items-start gap-1.5 text-[11px] text-rose-300">
+          <p className="flex items-start gap-1.5 text-[11px] text-danger-strong">
             <AlertTriangle className="mt-px size-3 shrink-0" />
             <span>Fix the highlighted field to run.</span>
           </p>
         ) : null}
 
-        {size > CANVAS_THRESHOLD ? (
-          <p className="text-[11px] text-amber-300/90">
-            Past {CANVAS_THRESHOLD} elements the viewport switches to canvas, and the run may hit
-            the frame cap and stop early. Smaller inputs teach more.
+        {/*
+          The size param outranks the input, and the UI has to say so.
+
+          28 algorithms carry a `size` param, and their `run` functions do
+          `input.values.slice(0, size)`. The param's default is usually 8, so
+          typing 45 values and pressing Run used to quietly draw the first 8 —
+          with the header's "yours" badge still lit, telling the student their
+          data was in play when most of it was not.
+
+          It is not a data-loss bug: the values are in the URL and reopening the
+          editor shows all 45 again. It is a *lie by omission*, which is the
+          category this codebase already treats as a real defect — a header that
+          reports `n = 8` for a 45-element array, and a "yours" badge over data
+          that is mostly not being run.
+
+          The fix is to say it rather than to change the contract. Auto-raising
+          the param would silently rewrite a control the student can see and
+          change, and the param is a legitimate thing to pin: running bubble sort
+          on exactly 8 elements is a reasonable thing to want. So the warning
+          names the number, because "some of your input will be ignored" is not
+          actionable and "the first 8 will be used" is.
+        */}
+        {truncating !== null ? (
+          <p className="text-[11px] text-accent-hover/90">
+            The <span className="font-semibold">{truncating.label}</span> parameter is{' '}
+            {truncating.value}, so this run uses only the first {truncating.value} of your {size}{' '}
+            values. Raise it in the header to use them all.
           </p>
         ) : null}
 
-        <div className="flex items-center gap-2 border-t border-slate-800 pt-2.5">
+        {size > LARGE_INPUT_THRESHOLD ? (
+          <p className="text-[11px] text-accent-hover/90">
+            Past {LARGE_INPUT_THRESHOLD} elements the cells shrink towards the point of being
+            unreadable, and a long run can hit the 50,000-frame cap and stop partway through.
+            Smaller inputs teach more.
+          </p>
+        ) : null}
+
+        <div className="flex items-center gap-2 border-t border-border pt-2.5">
           <button
             type="button"
             onClick={run}
@@ -255,8 +295,8 @@ export function InputEditor({ algo }: { algo: AlgoDef }) {
             className={cn(
               'rounded-md px-3 py-1 text-[12px] font-semibold transition-colors',
               parsed.ok
-                ? 'rounded-lg bg-amber-400 px-3.5 py-1.5 font-bold text-slate-950 shadow-md shadow-amber-500/20 transition-all hover:bg-amber-300 hover:shadow-amber-500/30'
-                : 'cursor-not-allowed rounded-lg bg-slate-800 text-slate-600',
+                ? 'rounded-lg bg-accent px-3.5 py-1.5 font-bold text-text-inverse shadow-md shadow-accent-deep/20 transition-all hover:bg-accent-hover hover:shadow-accent-deep/30'
+                : 'cursor-not-allowed rounded-lg bg-surface-inset text-text-faint',
             )}
           >
             Run on this
@@ -268,12 +308,12 @@ export function InputEditor({ algo }: { algo: AlgoDef }) {
               void usePlayer.getState().applyPreset(preset);
               setOpen(false);
             }}
-            className="flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-[11px] text-slate-400 transition-colors hover:border-slate-600 hover:text-slate-200"
+            className="flex items-center gap-1 rounded-md border border-border-strong px-2 py-1 text-[11px] text-text-muted transition-colors hover:border-border-subtle hover:text-text"
           >
             <RotateCcw className="size-3" />
             back to preset
           </button>
-          <span className="ml-auto text-[10px] text-slate-600">
+          <span className="ml-auto text-[10px] text-text-faint">
             your input goes in the link, so this run is shareable
           </span>
         </div>
@@ -299,7 +339,7 @@ function Toggle({
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="size-3 accent-amber-400"
+        className="size-3 accent-accent"
       />
       {label}
     </label>
@@ -336,8 +376,8 @@ function FieldControl({
           aria-describedby={describedBy}
           onChange={(e) => onChange(e.target.value)}
           className={cn(
-            'w-28 rounded border bg-slate-800 px-2 py-1 font-mono text-[12px] text-slate-100 tabular-nums',
-            error ? 'border-rose-500' : 'border-slate-700',
+            'w-28 rounded border bg-surface-inset px-2 py-1 font-mono text-[12px] text-text tabular-nums',
+            error ? 'border-danger-deep' : 'border-border-strong',
           )}
         />
       );
@@ -363,8 +403,8 @@ function FieldControl({
         aria-describedby={describedBy}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          'w-full resize-y rounded border bg-slate-800 px-2 py-1.5 font-mono text-[12px] leading-relaxed text-slate-100',
-          error ? 'border-rose-500' : 'border-slate-700',
+          'w-full resize-y rounded border bg-surface-inset px-2 py-1.5 font-mono text-[12px] leading-relaxed text-text',
+          error ? 'border-danger-deep' : 'border-border-strong',
         )}
       />
     );
@@ -372,7 +412,7 @@ function FieldControl({
 
   return (
     <div>
-      <label htmlFor={id} className="mb-1 block text-[11px] font-semibold text-slate-300">
+      <label htmlFor={id} className="mb-1 block text-[11px] font-semibold text-text-muted">
         {field.label}
       </label>
       {control}
@@ -383,11 +423,11 @@ function FieldControl({
         absent, not empty, until there is something wrong.
       */}
       {error ? (
-        <p id={`${id}-error`} role="alert" className="mt-1 text-[11px] text-rose-300">
+        <p id={`${id}-error`} role="alert" className="mt-1 text-[11px] text-danger-strong">
           {error}
         </p>
       ) : field.help ? (
-        <p id={`${id}-help`} className="mt-1 text-[10px] text-slate-500">
+        <p id={`${id}-help`} className="mt-1 text-[10px] text-text-subtle">
           {field.help}
         </p>
       ) : null}

@@ -16,11 +16,11 @@ import { resolveStyle, styleForKey } from './palette.ts';
  *    provenance of a cell is the entire lesson.
  */
 const TAG_STYLE: Record<string, string> = {
-  match: 'ring-2 ring-emerald-400',
-  mismatch: 'ring-2 ring-rose-400',
+  match: 'ring-2 ring-success',
+  mismatch: 'ring-2 ring-danger',
   diag: 'ring-2 ring-violet-400',
-  fromLeft: 'ring-2 ring-sky-400',
-  fromAbove: 'ring-2 ring-amber-400',
+  fromLeft: 'ring-2 ring-info-deep',
+  fromAbove: 'ring-2 ring-accent',
 };
 
 export const GridView = memo(function GridView({ frame }: { frame: GridFrame }) {
@@ -59,7 +59,7 @@ export const GridView = memo(function GridView({ frame }: { frame: GridFrame }) 
                 {frame.colHeader?.map((ch, i) => (
                   <th
                     key={i}
-                    className="w-6 text-center text-[10px] font-bold tracking-wide text-sky-300 uppercase"
+                    className="w-6 text-center text-[10px] font-bold tracking-wide text-info uppercase"
                   >
                     {ch === ' ' ? '␣' : ch}
                   </th>
@@ -71,7 +71,7 @@ export const GridView = memo(function GridView({ frame }: { frame: GridFrame }) 
             {Array.from({ length: rows }, (_, r) => (
               <tr key={r}>
                 {frame.rowHeader ? (
-                  <th className="w-5 pr-1 text-right text-[10px] font-bold text-sky-300">
+                  <th className="w-5 pr-1 text-right text-[10px] font-bold text-info">
                     {frame.rowHeader[r] === ' ' ? '␣' : (frame.rowHeader[r] ?? '')}
                   </th>
                 ) : null}
@@ -89,15 +89,15 @@ export const GridView = memo(function GridView({ frame }: { frame: GridFrame }) 
                           cellSize,
                           'flex items-center justify-center rounded border font-semibold tabular-nums',
                           'transition-colors duration-150',
-                          isFilled ? 'bg-sky-600/70 text-white' : style.bg,
-                          isFilled ? 'border-sky-400' : style.border,
+                          isFilled ? 'bg-info-deep/70 text-white' : style.bg,
+                          isFilled ? 'border-info-deep' : style.border,
                           style.text,
                           tag ? (TAG_STYLE[tag] ?? '') : '',
                           isCursor ? 'outline-2 outline-offset-1 outline-white' : '',
                         ].join(' ')}
                       >
                         {value === null || value === undefined ? (
-                          <span className="text-slate-600">·</span>
+                          <span className="text-text-faint">·</span>
                         ) : (
                           String(value)
                         )}
@@ -121,23 +121,23 @@ export const GridView = memo(function GridView({ frame }: { frame: GridFrame }) 
                 l.style.border,
               ].join(' ')}
             />
-            <span className="font-medium text-slate-300">{l.key}</span>
+            <span className="font-medium text-text-muted">{l.key}</span>
           </span>
         ))}
         {tagCounts.map(([tag, n]) => (
           <span key={tag} className="flex items-center gap-1.5">
             <span
               className={[
-                'inline-block h-2.5 w-2.5 rounded-sm bg-slate-700',
+                'inline-block h-2.5 w-2.5 rounded-sm bg-surface-overlay',
                 TAG_STYLE[tag] ?? '',
               ].join(' ')}
             />
-            <span className="font-medium text-slate-300">{tag}</span>
-            <span className="tabular-nums text-slate-500">{n}</span>
+            <span className="font-medium text-text-muted">{tag}</span>
+            <span className="tabular-nums text-text-subtle">{n}</span>
           </span>
         ))}
         {frame.cursor ? (
-          <span className="ml-auto font-mono text-slate-400">
+          <span className="ml-auto font-mono text-text-muted">
             cursor [{frame.cursor.row}, {frame.cursor.col}]
           </span>
         ) : null}
@@ -165,7 +165,7 @@ export const LinearView = memo(function LinearView({ frame }: { frame: LinearFra
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex min-h-0 flex-1 flex-col justify-center">
-        <div className="mb-1 flex justify-between text-[10px] font-semibold tracking-wide text-slate-500 uppercase">
+        <div className="mb-1 flex justify-between text-[10px] font-semibold tracking-wide text-text-subtle uppercase">
           <span>{frame.flavour === 'stack' ? 'top ↑' : 'front'}</span>
           {frame.flavour !== 'stack' ? <span>rear</span> : null}
         </div>
@@ -175,7 +175,7 @@ export const LinearView = memo(function LinearView({ frame }: { frame: LinearFra
           aria-label={`${frame.flavour} with ${n} items`}
         >
           {frame.items.length === 0 ? (
-            <div className="flex w-full items-center justify-center rounded border border-dashed border-slate-700 py-6 text-xs text-slate-500">
+            <div className="flex w-full items-center justify-center rounded border border-dashed border-border-strong py-6 text-xs text-text-subtle">
               empty
             </div>
           ) : null}
@@ -198,10 +198,10 @@ export const LinearView = memo(function LinearView({ frame }: { frame: LinearFra
           })}
         </div>
         {frame.edges && Object.keys(frame.edges).length > 0 ? (
-          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] text-slate-400">
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] text-text-muted">
             {Object.entries(frame.edges).map(([k, v]) => (
               <span key={k}>
-                <span className="font-medium text-slate-300">{k}</span> = {v}
+                <span className="font-medium text-text-muted">{k}</span> = {v}
               </span>
             ))}
           </div>
@@ -217,12 +217,12 @@ export const LinearView = memo(function LinearView({ frame }: { frame: LinearFra
       */}
       {frame.overlay ? (
         <div className="shrink-0">
-          <div className="mb-1 text-[10px] font-semibold tracking-wide text-slate-500 uppercase">
+          <div className="mb-1 text-[10px] font-semibold tracking-wide text-text-subtle uppercase">
             {frame.overlay.label}
           </div>
           <div className="flex flex-wrap items-stretch gap-1.5">
             {frame.overlay.values.length === 0 ? (
-              <div className="flex items-center justify-center rounded border border-dashed border-slate-700 px-3 py-2 text-xs text-slate-500">
+              <div className="flex items-center justify-center rounded border border-dashed border-border-strong px-3 py-2 text-xs text-text-subtle">
                 empty
               </div>
             ) : null}
@@ -248,7 +248,7 @@ export const LinearView = memo(function LinearView({ frame }: { frame: LinearFra
       ) : null}
 
       {legend.length > 0 ? (
-        <ul className="flex shrink-0 flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-400">
+        <ul className="flex shrink-0 flex-wrap gap-x-3 gap-y-1 text-[10px] text-text-muted">
           {legend.map((l) => (
             <li key={l.key} className="flex items-center gap-1.5">
               <span
@@ -258,7 +258,7 @@ export const LinearView = memo(function LinearView({ frame }: { frame: LinearFra
                   l.style.border,
                 ].join(' ')}
               />
-              <span className="font-medium text-slate-300">{l.key}</span>
+              <span className="font-medium text-text-muted">{l.key}</span>
             </li>
           ))}
         </ul>

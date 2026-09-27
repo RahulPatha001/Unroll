@@ -1,4 +1,7 @@
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { stripComments } from '../../lib/stripSource.ts';
 import { ALL_ALGORITHMS } from '../algorithms/registry.ts';
 import {
   buildGraphInput,
@@ -8,6 +11,9 @@ import {
   seedFieldText,
 } from './fields.ts';
 import type { AlgoInput, InputSpec } from './types.ts';
+
+/** Repo root, so the scan below can reach `docs/` as well as `src/`. */
+const ROOT = join(import.meta.dirname, '..', '..', '..');
 
 /**
  * The invariant that makes the custom-input editor trustworthy.
@@ -443,5 +449,91 @@ describe('a declared field that is really a parameter', () => {
     // `values` is not a param, and a `numbers` field must never be written into
     // one even if the key collided.
     expect(paramKeysFrom(algo.inputSpec, ['values'])).toEqual([]);
+  });
+});
+
+/*
+ * The canvas renderer does not exist.
+ *
+ * This used to be promised in three places at once — `docs/architecture.md`
+ * (with a table and a claimed-measured crossover), the `InputEditor` warning,
+ * and twenty-one algorithm `help:` strings — for a renderer that was never
+ * built. There is no `<canvas>` and no `getContext` anywhere in `src/`, and
+ * there has not been for the life of the project.
+ *
+ * It was removed rather than implemented, because the honest limit is already
+ * documented and enforced elsewhere: `MAX_FRAMES` truncates rather than throws.
+ *
+ * The reason it needs a test at all is that removing prose does not stop prose
+ * from coming back. The `help:` strings are generated into twenty-one algorithm
+ * files, and a future contributor restoring the old wording — or a new one
+ * inventing a similar promise about WebGL, OffscreenCanvas or SVG — would
+ * reintroduce a documented feature that does not exist, and there would be
+ * nothing to fail.
+ */
+describe('the renderer is DOM, and the docs know it', () => {
+  const read = (p: string) => readFileSync(join(ROOT, p), 'utf8');
+
+  /**
+   * Every `.ts`/`.tsx` under a directory, as repo-relative paths.
+   *
+   * Test files are skipped, which is not a convenience: this file contains the
+   * very strings it is looking for — `getContext(`, `switches to canvas` — as
+   * regex literals and as test names, so a scan that included itself would
+   * always fail, and the fix would be to weaken the pattern until it stopped
+   * catching the bug. The same reason `boundary.test.ts` filters `.test.ts`.
+   */
+  const walk = (dir: string, out: string[] = []): string[] => {
+    for (const entry of readdirSync(join(ROOT, dir))) {
+      if (entry === 'node_modules' || entry === 'dist' || entry.startsWith('.')) continue;
+      const rel = `${dir}/${entry}`;
+      if (statSync(join(ROOT, rel)).isDirectory()) walk(rel, out);
+      else if (/\.(ts|tsx|md)$/.test(entry) && !/\.test\.tsx?$/.test(entry)) out.push(rel);
+    }
+    return out;
+  };
+
+  it('actually has no canvas, so nothing may promise one', () => {
+    // The premise. If this ever fails, a canvas path exists and the promises
+    // below become reasonable again rather than false. Comments stripped here
+    // too, for the same reason: prose describing the absence is not a renderer.
+    const renderers = walk('src').filter((p) =>
+      /getContext\(|<canvas|createElement\(\s*['"]canvas/.test(stripComments(read(p))),
+    );
+    expect(renderers, 'a canvas renderer appeared — revisit the docs before this fails').toEqual(
+      [],
+    );
+  });
+
+  it('never tells a student the viewport switches to canvas', () => {
+    const claims: string[] = [];
+    for (const path of [...walk('src'), 'docs/architecture.md', 'README.md']) {
+      // Comments are stripped, strings are kept — the inverse of the usual
+      // treatment, and the reason `stripComments` exists. The `help:` strings
+      // that carried the false promise *are* string literals, so a scan that
+      // stripped them would be scanning for the absence of the evidence. And a
+      // comment explaining that there is no canvas is not a promise of one, so
+      // leaving comments in would fail this test on the very code that fixed it.
+      const body = stripComments(read(path));
+      for (const line of body.split('\n')) {
+        /*
+         * Canvas has to be the *subject*, not merely nearby. "Escape hatch" on
+         * its own is ordinary English in this codebase — two algorithms use it
+         * about C++ data structures, meaning `std::set` as a stand-in for a
+         * decrease-key operation, which is a real and correct use of the phrase.
+         * So "escape hatch" only counts when canvas is attached to it, which is
+         * how the false promise was actually worded: "a canvas escape hatch",
+         * "Canvas 2D", "the viewport switches to canvas".
+         */
+        if (
+          /switches? to (a )?canvas|canvas (renderer|rendering|2D|escape hatch)|canvas.{0,30}escape hatch/i.test(
+            line,
+          )
+        ) {
+          claims.push(`${path}: ${line.trim().slice(0, 90)}`);
+        }
+      }
+    }
+    expect(claims, `${claims.length} promise(s) of a renderer that does not exist`).toEqual([]);
   });
 });

@@ -14,7 +14,7 @@ describe('inline emphasis', () => {
 
   it('renders a single emphasised run', () => {
     expect(html('the stack records **2 again** rather than 8')).toContain(
-      '<strong class="font-semibold text-slate-50">2 again</strong>',
+      '<strong class="font-semibold text-text-strong">2 again</strong>',
     );
   });
 

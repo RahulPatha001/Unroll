@@ -13,6 +13,8 @@ dist-ssr
 *.local
 .kilo
 
+*.unroll-ui-overhaul.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -33,6 +35,11 @@ dist-ssr
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+# Screenshot diffs written next to the baselines on failure. The baselines
+# themselves are committed — that is the point of them — but the artefacts of a
+# failing comparison are noise in a diff.
+/tests/visual/**/*-diff.png
+/tests/visual/**/*-actual.png
 
 # Vite / TS build info
 *.tsbuildinfo

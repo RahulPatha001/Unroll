@@ -53,7 +53,7 @@ export const LinkedListView = memo(function LinkedListView({ frame }: { frame: L
 
   if (order.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-slate-500">
+      <div className="flex h-full items-center justify-center text-sm text-text-subtle">
         The list is empty.
       </div>
     );
@@ -75,7 +75,7 @@ export const LinkedListView = memo(function LinkedListView({ frame }: { frame: L
         >
           <defs>
             <marker id="ll-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
-              <path d="M0,0 L7,3 L0,6 z" className="fill-slate-500" />
+              <path d="M0,0 L7,3 L0,6 z" className="fill-text-subtle" />
             </marker>
             <marker
               id="ll-arrow-back"
@@ -85,7 +85,7 @@ export const LinkedListView = memo(function LinkedListView({ frame }: { frame: L
               refY="3"
               orient="auto"
             >
-              <path d="M7,0 L0,3 L7,6 z" className="fill-slate-600" />
+              <path d="M7,0 L0,3 L7,6 z" className="fill-text-faint" />
             </marker>
           </defs>
 
@@ -102,7 +102,7 @@ export const LinkedListView = memo(function LinkedListView({ frame }: { frame: L
                 y1={BOX_H / 2}
                 x2={xOf(next) - 5}
                 y2={BOX_H / 2}
-                className={changed ? 'stroke-amber-400' : 'stroke-slate-500'}
+                className={changed ? 'stroke-accent' : 'stroke-text-subtle'}
                 strokeWidth={changed ? 2.5 : 1.5}
                 markerEnd="url(#ll-arrow)"
               />
@@ -122,7 +122,7 @@ export const LinkedListView = memo(function LinkedListView({ frame }: { frame: L
                     y1={BOX_H + 44}
                     x2={xOf(prev) + BOX_W + 5}
                     y2={BOX_H + 44}
-                    className="stroke-slate-600"
+                    className="stroke-text-faint"
                     strokeWidth={1.25}
                     markerEnd="url(#ll-arrow-back)"
                   />
@@ -156,7 +156,7 @@ export const LinkedListView = memo(function LinkedListView({ frame }: { frame: L
                   x={BOX_W / 2}
                   y={-6}
                   textAnchor="middle"
-                  className="fill-slate-500 text-[9px]"
+                  className="fill-text-subtle text-[9px]"
                 >
                   {id}
                 </text>
@@ -167,13 +167,13 @@ export const LinkedListView = memo(function LinkedListView({ frame }: { frame: L
                       width={44}
                       height={15}
                       rx={3}
-                      className="fill-amber-400"
+                      className="fill-accent"
                     />
                     <text
                       x={BOX_W / 2}
                       y={11}
                       textAnchor="middle"
-                      className="fill-slate-950 text-[10px] font-bold"
+                      className="fill-text-inverse text-[10px] font-bold"
                     >
                       {p}
                     </text>
@@ -184,13 +184,13 @@ export const LinkedListView = memo(function LinkedListView({ frame }: { frame: L
           })}
 
           {/* head / null tail annotations */}
-          <text x={MARGIN} y={BOX_H + 18} className="fill-slate-400 text-[11px] font-semibold">
+          <text x={MARGIN} y={BOX_H + 18} className="fill-text-muted text-[11px] font-semibold">
             head
           </text>
           {frame.circular ? (
             <path
               d={`M${xOf(order.length - 1) + BOX_W / 2},${BOX_H / 2} C${xOf(order.length - 1) + BOX_W / 2 + 70},${BOX_H / 2 + 70} ${xOf(0) - 70},${BOX_H / 2 + 70} ${xOf(0) + BOX_W / 2},${BOX_H / 2 + 4}`}
-              className="fill-none stroke-rose-400"
+              className="fill-none stroke-danger"
               strokeWidth={2}
               markerEnd="url(#ll-arrow)"
             />
@@ -198,13 +198,13 @@ export const LinkedListView = memo(function LinkedListView({ frame }: { frame: L
             <text
               x={xOf(order.length - 1) + BOX_W + 6}
               y={BOX_H / 2 + 4}
-              className="fill-slate-500 text-[12px] font-mono"
+              className="fill-text-subtle text-[12px] font-mono"
             >
               null
             </text>
           )}
           {frame.circular ? (
-            <text x={MARGIN} y={BOX_H + 18} className="fill-rose-400 text-[11px] font-semibold">
+            <text x={MARGIN} y={BOX_H + 18} className="fill-danger text-[11px] font-semibold">
               head — circular
             </text>
           ) : null}
@@ -221,19 +221,19 @@ export const LinkedListView = memo(function LinkedListView({ frame }: { frame: L
                 l.style.border,
               ].join(' ')}
             />
-            <span className="font-medium text-slate-300">{l.key}</span>
+            <span className="font-medium text-text-muted">{l.key}</span>
           </span>
         ))}
         {frame.relinked?.length ? (
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-0.5 w-4 bg-amber-400" />
-            <span className="font-medium text-slate-300">just rewired</span>
+            <span className="inline-block h-0.5 w-4 bg-accent" />
+            <span className="font-medium text-text-muted">just rewired</span>
           </span>
         ) : null}
         {frame.doubly ? (
-          <span className="text-slate-500">arrows above: next · arrows below: prev</span>
+          <span className="text-text-subtle">arrows above: next · arrows below: prev</span>
         ) : null}
-        <span className="ml-auto font-mono text-slate-500">
+        <span className="ml-auto font-mono text-text-subtle">
           tail: {String(byId.get(tailId)?.value ?? '')}
         </span>
       </div>

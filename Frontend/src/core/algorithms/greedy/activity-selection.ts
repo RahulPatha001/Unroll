@@ -409,7 +409,7 @@ export const activitySelectionAlgo: AlgoDef<ArrayFrame> = {
       step: 1,
       default: 8,
       regeneratesInput: true,
-      help: 'Beyond 60 the viewport switches to canvas.',
+      help: 'Past 60 elements the cells get small, and a long run can hit the frame cap and stop early.',
     },
     {
       key: 'startTimes',

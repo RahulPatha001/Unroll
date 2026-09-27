@@ -17,6 +17,48 @@ const NODE_H = 30;
 const LEVEL_GAP = 74;
 const MARGIN = 40;
 
+/*
+ * Fit-to-box.
+ *
+ * This drawing used to be `<svg width={width} height={height} className="m-auto
+ * max-h-full max-w-full">`, and `max-*` is a ceiling, not a target. A
+ * three-node AVL tree laid out at 168x144 units drew at 168x144 in the middle
+ * of a 1046px panel — measured, a sixth of its width and a fifth of its height,
+ * and the height was the *good* case. The layout above works in its own units
+ * and knows nothing about the panel, so the fix is to let the browser do the
+ * fitting: a `viewBox` plus `xMidYMid meet` scales the drawing, its strokes and
+ * its text together, which is what a diagram wants and what a CSS
+ * `transform: scale()` on a wrapper would not.
+ *
+ * Three things in here are decisions rather than arithmetic:
+ *
+ *  - **The zoom is capped.** Uncapped, fitting is a zoom control with no stop:
+ *    168x144 into 1046x724 is a 5x blow-up, and a 12px node label becomes 60px.
+ *    Past roughly this cap the labels stop describing the tree and start
+ *    competing with it. It also buys nothing, because what is still unused once
+ *    a diagram is this large is the *aspect-ratio* slack — a five-deep chain is
+ *    124x440 and cannot fill a landscape box without being cropped, which no
+ *    amount of zooming recovers.
+ *
+ *  - **The cap is expressed in CSS, not in a measurement.** The element is sized
+ *    `100%` of its box and clamped to `natural size x cap`, so the browser's own
+ *    fit provably cannot exceed the cap. That is what makes it free: a window
+ *    resize re-fits with no `ResizeObserver`, no subscription and no re-render,
+ *    and a component that re-renders 60x a second during playback adds nothing
+ *    to that. It also keeps the module free of `window`, so it still imports in
+ *    Node.
+ *
+ *  - **The viewBox is the layout box plus a hair of slack.** Arrowheads and the
+ *    `[i]` caption sit just outside the last node, and `overflow-visible` is
+ *    kept because that is what stops them being clipped — which also means
+ *    anything drawn outside the viewBox escapes the box the scroll container
+ *    was given. The layout's own 40-unit margin does the real work here; four
+ *    more is slack on top of it, and no more, because every unit of padding is a
+ *    unit the fit has to divide by.
+ */
+const PAD = 4;
+const MAX_ZOOM = 2.5;
+
 interface Placed {
   node: TreeNode;
   x: number;
@@ -114,9 +156,16 @@ export const TreeView = memo(function TreeView({ frame }: { frame: TreeFrame }) 
     style: styleForKey(k),
   }));
 
+  // The floors are the ones the old `width`/`height` attributes carried, which is
+  // the only reason they are still here. A lone root lays out at 124x70, so
+  // without them its viewBox would be a 70-unit sliver of a 750px panel; with
+  // them it is still tiny, which is the honest answer for a tree with one node.
+  const vbW = Math.max(width, 120) + PAD * 2;
+  const vbH = Math.max(height, 90) + PAD * 2;
+
   if (placed.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-slate-500">
+      <div className="flex h-full items-center justify-center text-sm text-text-subtle">
         The tree is empty.
       </div>
     );
@@ -126,9 +175,10 @@ export const TreeView = memo(function TreeView({ frame }: { frame: TreeFrame }) 
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">
         <svg
-          width={Math.max(width, 120)}
-          height={Math.max(height, 90)}
-          className="m-auto max-h-full max-w-full overflow-visible"
+          viewBox={`${-PAD} ${-PAD} ${vbW} ${vbH}`}
+          preserveAspectRatio="xMidYMid meet"
+          className="m-auto h-full w-full shrink-0 overflow-visible"
+          style={{ maxWidth: `${vbW * MAX_ZOOM}px`, maxHeight: `${vbH * MAX_ZOOM}px` }}
           role="img"
           aria-label={`Binary tree with ${placed.length} nodes${frame.path?.length ? `, current path of ${frame.path.length} nodes` : ''}`}
         >
@@ -141,7 +191,7 @@ export const TreeView = memo(function TreeView({ frame }: { frame: TreeFrame }) 
               refY="3"
               orient="auto"
             >
-              <path d="M0,0 L6,3 L0,6 z" className="fill-slate-600" />
+              <path d="M0,0 L6,3 L0,6 z" className="fill-text-faint" />
             </marker>
           </defs>
 
@@ -158,7 +208,7 @@ export const TreeView = memo(function TreeView({ frame }: { frame: TreeFrame }) 
                       y1={parent.y + NODE_H}
                       x2={child.x + NODE_W / 2}
                       y2={child.y}
-                      className={onPath ? 'stroke-amber-400' : 'stroke-slate-600'}
+                      className={onPath ? 'stroke-accent' : 'stroke-text-faint'}
                       strokeWidth={onPath ? 2.5 : 1.5}
                       markerEnd="url(#tree-arrow)"
                     />
@@ -196,7 +246,7 @@ export const TreeView = memo(function TreeView({ frame }: { frame: TreeFrame }) 
                     x={NODE_W / 2}
                     y={NODE_H + 11}
                     textAnchor="middle"
-                    className="fill-amber-500/80 text-[9px] font-semibold"
+                    className="fill-accent-deep/80 text-[9px] font-semibold"
                   >
                     [{arrayIndex[node.id]}]
                   </text>
@@ -205,7 +255,7 @@ export const TreeView = memo(function TreeView({ frame }: { frame: TreeFrame }) 
                     x={NODE_W / 2}
                     y={NODE_H + 11}
                     textAnchor="middle"
-                    className="fill-slate-500 text-[8px]"
+                    className="fill-text-subtle text-[8px]"
                   >
                     h{node.meta.height}
                   </text>
@@ -217,7 +267,7 @@ export const TreeView = memo(function TreeView({ frame }: { frame: TreeFrame }) 
       </div>
 
       {legend.length > 0 ? (
-        <ul className="flex shrink-0 flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-400">
+        <ul className="flex shrink-0 flex-wrap gap-x-3 gap-y-1 text-[10px] text-text-muted">
           {legend.map((l) => (
             <li key={l.key} className="flex items-center gap-1.5">
               <span
@@ -227,19 +277,19 @@ export const TreeView = memo(function TreeView({ frame }: { frame: TreeFrame }) 
                   l.style.border,
                 ].join(' ')}
               />
-              <span className="font-medium text-slate-300">{l.key}</span>
+              <span className="font-medium text-text-muted">{l.key}</span>
             </li>
           ))}
           {arrayIndex ? (
             <li className="flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm border border-amber-500 bg-amber-500/30" />
-              <span className="font-medium text-slate-300">implicit array index</span>
+              <span className="inline-block h-2.5 w-2.5 rounded-sm border border-accent-deep bg-accent-deep/30" />
+              <span className="font-medium text-text-muted">implicit array index</span>
             </li>
           ) : null}
           {frame.path?.length ? (
             <li className="flex items-center gap-1.5">
-              <span className="inline-block h-0.5 w-4 bg-amber-400" />
-              <span className="font-medium text-slate-300">recursion path</span>
+              <span className="inline-block h-0.5 w-4 bg-accent" />
+              <span className="font-medium text-text-muted">recursion path</span>
             </li>
           ) : null}
         </ul>

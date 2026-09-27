@@ -1,6 +1,6 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.5.14/schema.json",
-  "vcs": { "enabled": false, "clientKind": "git", "useIgnoreFile": true },
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
     "includes": [
       "**",
@@ -9,7 +9,8 @@
       "!**/coverage",
       "!**/test-results",
       "!**/playwright-report",
-      "!**/.tmp-verify"
+      "!**/.tmp-verify",
+      "!**/.kilo"
     ]
   },
   "formatter": {
@@ -112,11 +113,17 @@
       }
     },
     {
-      // The two tests that *enforce* filesystem-shaped rules have to read from
-      // disk themselves: `boundary.test.ts` scans `core/` for Node imports, and
-      // `contract.test.ts` lists the algorithm directory to catch a module nobody
-      // registered. Everything else in `core/` is still denied.
-      "includes": ["src/core/boundary.test.ts", "src/core/algorithms/contract.test.ts"],
+      // The tests that *enforce* filesystem-shaped rules have to read from
+      // disk themselves: `boundary.test.ts` scans `core/` for Node imports,
+      // `contract.test.ts` lists the algorithm directory to catch a module
+      // nobody registered, and `input/fields.test.ts` greps the repo for a
+      // promise of a canvas renderer that does not exist. Everything else in
+      // `core/` is still denied.
+      "includes": [
+        "src/core/boundary.test.ts",
+        "src/core/algorithms/contract.test.ts",
+        "src/core/input/fields.test.ts"
+      ],
       "linter": {
         "rules": {
           "style": {

@@ -324,16 +324,38 @@ Three limits worth stating, each found by the rule firing on correct code:
 
 ---
 
-## Rendering: DOM, with a canvas escape hatch
+## Rendering: DOM, at every size
 
-| Elements | Renderer |
+Everything is DOM. There is no canvas, no `getContext`, no second rendering path.
+
+This section used to promise a second, canvas-based renderer above 150 elements,
+with a table, a claimed-measured crossover, and a note that `ArrayView` and
+`GridView` were "structured so a canvas implementation can slot in behind the
+same props". None of it was true — the renderer was never built, and the same
+claim appeared in `InputEditor` and in twenty-one algorithm `help:` strings.
+Documentation for a feature that does not exist is worse than a missing feature,
+because it is indistinguishable from a bug report: a student reads it, tries it,
+and concludes the app is broken.
+
+So: what actually happens above 150 elements?
+
+| Elements | What happens |
 | --- | --- |
-| ≤ 150 | DOM (`<div>` + transforms) — styleable, accessible, animatable |
-| > 150 | Canvas 2D — avoids thousands of layout/paint ops |
+| ≤ 40 | One cell per element, labelled, room for a pointer marker above it |
+| 41–150 | Cells shrink toward a 12px floor, then drop to a compact grid with no labels |
+| > 150 | The same, plus a warning: cells are unreadable and `MAX_FRAMES` (50,000) can truncate the run |
 
-The crossover is measured, not guessed, and it is **per viewport**: a 200-cell grid
-costs far more than a 200-bar chart. `ArrayView` and `GridView` are structured so
-a canvas implementation can slot in behind the same props.
+The real ceiling is `MAX_FRAMES` in `src/core/trace/materialise.ts`, which
+truncates rather than throws. That is the limit worth documenting, because a
+truncated trace ends mid-algorithm with nothing on screen saying it was cut
+short.
+
+If a canvas path is ever added, the invariant to preserve is that it is a
+*rendering* change only: the same frames, the same highlight keys, the same
+`role="img"` descriptions, and the same palette. The palette is the hard part —
+its 33 colours are Tailwind class strings, not values, precisely so that a
+`fill-` variant can be derived, and `src/features/viewport/palette.test.ts`
+enforces that by reading the file from disk.
 
 ### 6.1a The viewport must not move unless the algorithm moved it
 
@@ -407,6 +429,90 @@ A percentage height does **not** resolve against a `flex: 1 1 0%` parent. Fillin
 remaining space with `h-full` silently collapses a panel to its content height,
 and every bar chart inside then sizes its bars against the wrong box. Use
 `flex-1` with `min-h-0` throughout. This cost an afternoon once.
+
+### Columns, drawers, and the rule between them
+
+`src/features/player/panes.ts` owns one invariant:
+
+> At most one pane may be a **drawer** at a time. Any number may be **columns**.
+
+Getting there was not a styling change. The shell used to hold two independent
+booleans, `sidebarOpen` and `codeOpen`, both initialised `true`. Below `xl` the
+code panel becomes a `fixed` drawer while the nav is still a column, so the store
+said "both open" and the DOM said "one column and one drawer on top of it". A
+phone visitor arrived to a 288px nav drawer, a 359px code drawer, a scrim, a 403px
+header and a 214px visualisation, all at once, with the transport bar behind
+them.
+
+The obvious fix — a single `Overlay = 'none' | 'nav' | 'code' | 'input'` union —
+is **also** wrong, and wrong in the direction that breaks the product. It can only
+describe one visible pane, but at 1280px and above the nav and the code panel are
+both meant to be visible: that is the product claim, that the animation and the
+code are the same program. A type that cannot express "two panes visible" gets
+that pane deleted to make the type compile. So the distinction that earns its
+keep is column-versus-drawer, not which-pane-is-open.
+
+| Width | Nav | Code |
+| --- | --- | --- |
+| >= 1280 (`xl`) | column | column |
+| 1024–1279 (`lg`) | column | drawer |
+| < 1024 | drawer | drawer, one at a time |
+
+The middle band is why the rule is about drawers. There the nav is a genuine
+column and the code panel is a drawer over it, so two panes are visible at once
+and only one is an overlay; a rule of "at most one pane visible" would have
+dismissed the nav in a width that has room for it.
+
+Two things that are *not* in `panes.ts`, deliberately:
+
+- **The breakpoints as media queries for the store.** `isDocked()` asks
+  `matchMedia` per call rather than caching a listener, because a stale cache is
+  a layout bug that only reproduces on some machines. It is called on user action,
+  not per frame.
+- **A resize hook.** The store enforces the rule when a *pane* is opened or
+  closed, and a resize is not that. `App.tsx` subscribes to `change` on both
+  queries and calls `syncPanesToWidth()`, because opening both columns on a
+  desktop and then dragging the window narrow would otherwise reach the forbidden
+  state by the one route that bypasses a setter.
+
+`reconcilePanes` is a pure function with the viewport injected, and it is tested
+exhaustively — every starting state, every target, every pane against every
+breakpoint arrangement — because the rule is small enough to enumerate and a
+combinatorial invariant cannot be proven by example.
+
+### The header's height is unconditional
+
+The header used to be four rows and was the largest thing on screen with nothing
+to do with the algorithm: 281px of a 900px window at 1440 wide, 315px at 1280, and
+403px of an 844px phone. Worse, its height was a *function of the window's width*,
+non-monotonically — 236px at 1200, 315px at 1280, 236px at 1920 — which breaks the
+principle in §6.1a: the one element on screen that should only change because the
+algorithm changed it was changing because the browser was resized.
+
+Closing that took three fixes, and each one only moved the problem somewhere
+else, which is the argument for sweeping a range of widths in a test rather than
+checking two:
+
+1. The complexity row used `flex-wrap`, and wrapped at some widths.
+2. `flex-nowrap` + `overflow-x: auto` moved the non-determinism to the
+   **scrollbar**, which occupies layout space and so appeared only when the
+   toolbar overflowed — which depended on whether the code panel was a docked
+   column taking 461px. `scroll-fade-x` (`src/index.css`) scrolls without
+   occupying a line, and pays back the missing scrollbar with a masked fade.
+3. Even then each parameter label could still shrink, and a flex row that *can*
+   shrink wraps rather than overflow, so a label wrapped to two or three lines
+   inside its own box. `shrink-0 whitespace-nowrap` on the labels closed it.
+
+It is now a measured 77px at every width from 1024 to 2560, for every algorithm
+checked. The general lesson: **in a flex row, `flex-nowrap` alone does not give
+you a constant height.** It stops the *row* wrapping; it says nothing about items
+that can shrink and wrap internally.
+
+Everything explanatory — summary, complexity, traits, "when to use it" — moved
+into an **overlay** disclosure rather than an inline one, for the same reason the
+input editor is an overlay: an inline expansion would push the visualisation down
+when opened. That choice is what makes the header's height unconditional, since
+opening the panel cannot change it and neither can resizing the window.
 
 ---
 
@@ -520,10 +626,12 @@ bundled — the boundary rule is what guarantees that.
 
 | Layer | Command | What it proves |
 | --- | --- | --- |
-| Unit | `npm test` | trace snapshots, transport reducer, anchor parsing |
+| Unit | `npm test` | trace snapshots, transport reducer, anchor parsing, the pane invariant |
 | Contract | `npm test` | *every* algorithm: runs, terminates, valid trace, every anchor resolves in all four languages, no dead notes, one expectation per preset |
 | Parity | `npm run verify:langs` | all four languages return the same thing on every preset — **not** that any of them is right |
 | E2E | `npm run test:e2e` | deep links, stepping both directions, the same step highlighted in four languages, a11y announcements |
+| Visual | `npm run test:visual` | geometry baselines in JSON, plus screenshots at 3 widths per renderer and per UI state |
+| Baselines | `npm run snapshots:update` | refreshes both. Build first — the baselines are of the production bundle |
 | Budget | `node tools/budget.mjs` | initial payload under 200 kB gzip |
 
 The **contract test** is the highest-value one. With 66 algorithms the
@@ -532,11 +640,46 @@ on the one input its author tried and emits an anchor with no matching line in t
 Python listing, or loops forever, or walks a pointer off the end of the array. That
 test is the thing that catches it, and it runs on all of them every commit.
 
-E2E tests are behavioural, not snapshot-based. A pixel snapshot of a visualiser is
-noise — it breaks whenever a colour changes and tells you nothing about whether the
-thing works.
+**On snapshots.** E2E tests here are behavioural, and that is still the right
+default: a behavioural test says what the app *does*, and survives a redesign. But
+this repo had zero layout coverage for a long time, and three of the worst defects
+it ever had were invisible to every test in the suite — the header changed height
+when the window was resized, both overlays defaulted to open on a phone, and the
+code panel and the nav stacked on top of each other at 1024. None of them change
+behaviour, so no amount of behavioural testing would have found them.
 
-**Two gaps in that table, both found the hard way.**
+So there are now two visual layers, and the split between them is the point:
+
+- **Geometry, as JSON.** Bounding boxes of the header, narration card,
+  visualisation region and transport, compared numerically. A pixel diff *cannot*
+  catch a 2px reflow — it is a handful of antialiased pixels against a tolerance
+  chosen to absorb font-rendering differences, so it scores as a pass. A reflow is
+  a *relationship* between two measurements, and a pinned number cannot express a
+  relationship. The `maxDiffPixelRatio` is 0.002, deliberately tiny: it exists to
+  absorb antialiasing, not to permit a layout change.
+- **Screenshots**, for "does it still look right", at 3 widths per renderer and
+  per UI state — not the full cross-product. 26 images, byte-identical across
+  consecutive runs, which is verified rather than assumed.
+
+A defect is nearly always a *relationship* — "these two boxes must not both be
+open", "this box's height must not depend on that one's" — and that is what the
+numeric layer is for. Screenshots are the weaker tool here and are used for the
+thing they are actually good at.
+
+**Determinism was the hard part, and it is mostly Shiki.** Highlighting is four
+dynamic `import()`s, so the code panel paints plain monospace text and then
+repaints with colour — and since the panel is a docked column at every viewport
+where it matters, *every* baseline was racing it. Hence `data-highlighted` on the
+listing, which distinguishes `pending` (wait) from `unavailable` (the documented
+plain-text fallback *is* the answer; stop waiting). The other two sources are the
+lazily-imported algorithm chunk, and the playback clock, which is a
+`requestAnimationFrame` loop — asserted paused, since a clock that is not
+injectable is cheaper to not start than to freeze. Notably, `prefers-reduced-motion`
+is deliberately *not* emulated: the app honours it as a real user setting that also
+disables the speed control, so a baseline captured under it would not match what a
+default visitor sees.
+
+**Two gaps in the table above, both found the hard way.**
 
 *Parity cannot see a shared bug.* It diffs each language's reported output against
 the reference trace, so four listings that are wrong in the same way agree

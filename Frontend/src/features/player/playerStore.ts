@@ -17,6 +17,7 @@ import {
 } from '../../core/trace/player.ts';
 import type { Frame } from '../../core/trace/types.ts';
 import { loadAlgorithm } from '../registry/loaders.ts';
+import { initialPaneFlags, reconcileForWidth, reconcilePanes } from './panes.ts';
 import { type BuiltTrace, buildTrace } from './traceBuilder.ts';
 
 /**
@@ -92,6 +93,8 @@ export interface PlayerState {
   toggleInput: () => void;
   setCodeOpen: (open: boolean) => void;
   toggleCode: () => void;
+  /** Re-reconcile panes after a viewport change. See `panes.ts`. */
+  syncPanesToWidth: () => void;
   setShortcutsOpen: (open: boolean) => void;
 }
 
@@ -161,9 +164,16 @@ export const usePlayer = create<PlayerState>()(
     lang: 'javascript',
     loop: false,
     showPointerLabels: true,
-    sidebarOpen: true,
-    inputOpen: false,
-    codeOpen: true,
+    /*
+     * Panes start open only where they are columns.
+     *
+     * Both used to be hard-coded `true`, which meant a phone visitor arrived to
+     * two stacked drawers with the header, narration, viewport and transport all
+     * behind them. On a desktop this is unchanged, so the fix costs the desktop
+     * nothing — see `panes.ts` for why the rule is "at most one *drawer*" rather
+     * than "at most one pane".
+     */
+    ...initialPaneFlags(),
     shortcutsOpen: false,
 
     async load(id, opts) {
@@ -262,20 +272,39 @@ export const usePlayer = create<PlayerState>()(
     togglePointerLabels() {
       set({ showPointerLabels: !get().showPointerLabels });
     },
+    /*
+     * Every pane mutation goes through `reconcilePanes`, so "at most one drawer
+     * is open" is enforced by the only code that can break it. These three used
+     * to be plain assignments, which is what let the store hold a state the
+     * layout could not render.
+     */
     setSidebarOpen(sidebarOpen) {
-      set({ sidebarOpen });
+      set(reconcilePanes(get(), 'nav', sidebarOpen));
     },
     setInputOpen(inputOpen) {
-      set({ inputOpen });
+      set(reconcilePanes(get(), 'input', inputOpen));
     },
     toggleInput() {
-      set({ inputOpen: !get().inputOpen });
+      const { inputOpen } = get();
+      set(reconcilePanes(get(), 'input', !inputOpen));
     },
     setCodeOpen(codeOpen) {
-      set({ codeOpen });
+      set(reconcilePanes(get(), 'code', codeOpen));
     },
     toggleCode() {
-      set({ codeOpen: !get().codeOpen });
+      const { codeOpen } = get();
+      set(reconcilePanes(get(), 'code', !codeOpen));
+    },
+    /**
+     * Called when the window crosses a docking threshold.
+     *
+     * The store only enforces the rule on pane actions, and a resize is not an
+     * action on a pane: a student with both columns open who drags the window
+     * down to 900px would otherwise strand two drawers open, which is the exact
+     * state this module exists to make unreachable.
+     */
+    syncPanesToWidth() {
+      set(reconcileForWidth(get()));
     },
     setShortcutsOpen(shortcutsOpen) {
       set({ shortcutsOpen });

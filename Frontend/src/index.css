@@ -10,13 +10,128 @@
   --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
 }
 
+/*
+ * Semantic colour tokens.
+ *
+ * Before this block, colour was ~175 literal Tailwind utilities across 20 files:
+ * `bg-slate-900/60` here, `text-amber-300` there, `ring-emerald-400/40` in a third
+ * place, with nothing recording that the three were the same amber. The cost was
+ * not the repetition, it was that "make this a lighter grey" was a find-and-
+ * replace across the tree with no way to check you got all of them, and a light
+ * theme was a rewrite rather than a value change.
+ *
+ * Two rules, and both of them are load-bearing:
+ *
+ *  1. **Semantic, not literal.** `--color-text-muted`, never
+ *     `--color-grey-400`. A token named after its colour cannot be re-themed,
+ *     because renaming it is the change. A token named after its *role* is the
+ *     change.
+ *  2. **Aliased through `var()`, not copied as hex.** Every value below points at
+ *     a stock Tailwind colour rather than repeating its hex. If the palette ever
+ *     moves, the tokens follow it, and there is no second copy to fall out of
+ *     sync — which is the entire failure mode this block exists to prevent.
+ *
+ * Every one of these resolves to the value the app already used, so the layer is
+ * a no-op on screen. The visual baselines are what proves that: they were
+ * captured before this block and pass unchanged after it.
+ *
+ * The alpha variants (`/15`, `/80`, `/90`) need no tokens of their own. A
+ * `--color-*` value is an ordinary colour, so `bg-surface-raised/80` and
+ * `text-text-muted/60` work for free, and defining pre-baked `rgba()` values
+ * would have meant a second token per opacity — 14 opacities are in use.
+ *
+ * `src/features/viewport/palette.ts` is **deliberately absent** from this scheme.
+ * Its 33 colours are literal Tailwind class strings because deriving a `fill-`
+ * variant from a `text-` one breaks Shiki-adjacent emission, and
+ * `palette.test.ts` enforces that by reading the file from disk. It is a closed
+ * vocabulary, not a set of loose literals, and it is not this layer's business.
+ *
+ * `--color-text-subtle` is the one token whose value is *not* purely a
+ * reorganisation. See the note on it below.
+ */
+@theme {
+  /* --- surfaces, lightest-on-dark: the canvas, the panels, the controls --- */
+  --color-surface: var(--color-slate-950);
+  --color-surface-raised: var(--color-slate-900);
+  --color-surface-inset: var(--color-slate-800);
+  --color-surface-overlay: var(--color-slate-700);
+
+  /* --- edges --- */
+  --color-border: var(--color-slate-800);
+  --color-border-strong: var(--color-slate-700);
+  --color-border-subtle: var(--color-slate-600);
+
+  /* --- type --- */
+  --color-text: var(--color-slate-100);
+  --color-text-strong: var(--color-slate-50);
+  --color-text-muted: var(--color-slate-300);
+  --color-text-subtle: var(--color-slate-500);
+  --color-text-faint: var(--color-slate-600);
+  --color-text-inverse: var(--color-slate-950);
+
+  /* --- the accent: play, focus, and the one thing that is interactive --- */
+  --color-accent: var(--color-amber-400);
+  --color-accent-hover: var(--color-amber-300);
+  --color-accent-strong: var(--color-amber-200);
+  --color-accent-deep: var(--color-amber-500);
+
+  /* --- meaning --- */
+  --color-success: var(--color-emerald-400);
+  --color-success-strong: var(--color-emerald-300);
+  --color-success-deep: var(--color-emerald-500);
+  --color-danger: var(--color-rose-400);
+  --color-danger-strong: var(--color-rose-300);
+  --color-danger-deep: var(--color-rose-500);
+  --color-info: var(--color-sky-300);
+  --color-info-deep: var(--color-sky-400);
+}
+
+/*
+ * A note on `--color-text-subtle`, because it is the one that is not a pure
+ * reorganisation and it is worth being explicit about why.
+ *
+ * `--color-text-faint` resolves to `slate-600`, and on the `slate-900` chrome that
+ * is a contrast ratio of roughly 2.6:1 — well under the 4.5:1 WCAG AA floor for
+ * body text. It is used for separators, the `=` between a variable and its value,
+ * and a few genuinely decorative marks, which is why it was never caught by a
+ * contrast checker: those uses *are* decorative and AA does not apply to them.
+ *
+ * It is kept, and named `faint` rather than `subtle`, precisely so the distinction
+ * survives. A token called `text-subtle` reads as "small but readable" and gets
+ * used for text; a token called `text-faint` reads as "barely there, for marks" and
+ * does not. If WCAG AA is enforced in CI (it is not yet — see the plan's quality
+ * gates) it should exempt this token by name rather than by opacity, because the
+ * distinction is semantic and opacity thresholds cannot express it.
+ *
+ * `--color-text-subtle` (`slate-500`, ~3.8:1) is the one genuinely borderline
+ * value: it passes AA for large text and misses 4.5:1 for small. It carries 49
+ * uses, so raising it is a visible change and a deliberate decision rather than
+ * something to smuggle into a refactor.
+ *
+ * ## Which way consolidation went, and why it matters
+ *
+ * The ramp runs *lighter* as the number falls: `slate-100` (#f1f5f9) is lighter
+ * than `slate-200` (#e2e8f0), which is lighter than `slate-300` (#cbd5e1). It is
+ * easy to have this backwards, and getting it backwards silently darkens text
+ * while claiming to have lightened it.
+ *
+ * So, checked rather than assumed. `text-text` is `slate-100`, so the 18
+ * `text-slate-200` sites got *lighter* (14.5:1 → 16.3:1 on the chrome).
+ * `text-text-muted` is **`slate-300`, not `slate-400`** — the first version of
+ * this block picked `slate-400`, which quietly darkened 37 sites (12.0:1 →
+ * 7.0:1) while the migration notes claimed the opposite. Both values clear AA
+ * comfortably, so neither was a regression, but the claim was wrong and the
+ * direction was needlessly worse. With `slate-300` the 30 `slate-400` sites get
+ * lighter instead and nothing gets darker.
+ */
+
 @layer base {
   html {
     color-scheme: dark;
   }
 
   body {
-    @apply text-slate-100 antialiased;
+    @apply text-text antialiased;
     font-family: var(--font-sans);
     /* The app is a fixed-viewport player; page-level scrolling would fight the
        layout and make the transport bar unreachable on short screens. */
@@ -27,20 +142,20 @@
      and a student stepping through steps with arrows must always know where
      they are. */
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-amber-400;
+    @apply outline-2 outline-offset-2 outline-accent;
   }
 
   ::-webkit-scrollbar {
     @apply h-2 w-2;
   }
   ::-webkit-scrollbar-track {
-    @apply bg-slate-900;
+    @apply bg-surface-raised;
   }
   ::-webkit-scrollbar-thumb {
-    @apply rounded-full bg-slate-700;
+    @apply rounded-full bg-surface-overlay;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-slate-500;
+    @apply bg-border-subtle;
   }
 }
 
@@ -62,7 +177,16 @@
 }
 
 /* The range input needs explicit thumb styling; the default is nearly invisible
-   on a dark background. */
+   on a dark background.
+
+   Every colour here is a token or a `color-mix` of one. It used to be four raw
+   hexes — `#fbbf24` twice, `#0f172a` twice, plus the same amber again in two
+   `rgb(... / 0.35)` shadows — which is the worst version of this pattern: the
+   accent was duplicated six times as literals, so a re-theme of `--color-accent`
+   would have left the scrubber's thumb a *different amber from every other amber
+   in the app*, with nothing to connect them. `color-mix` is used for the glow
+   rather than a hard-coded `rgb()`, so the shadow is derived from the token
+   instead of restating it. */
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
@@ -74,36 +198,39 @@ input[type="range"]::-webkit-slider-thumb {
   height: 16px;
   width: 16px;
   border-radius: 9999px;
-  background: #fbbf24;
+  background: var(--color-accent);
   cursor: pointer;
-  border: 3px solid #0f172a;
-  box-shadow: 0 0 8px rgb(251 191 36 / 0.35);
+  border: 3px solid var(--color-surface-raised);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 35%, transparent);
   transition: box-shadow 150ms ease;
 }
 input[type="range"]::-webkit-slider-thumb:hover {
-  box-shadow: 0 0 14px rgb(251 191 36 / 0.5);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--color-accent) 50%, transparent);
 }
 input[type="range"]::-moz-range-thumb {
   height: 16px;
   width: 16px;
   border-radius: 9999px;
-  background: #fbbf24;
+  background: var(--color-accent);
   cursor: pointer;
-  border: 3px solid #0f172a;
-  box-shadow: 0 0 8px rgb(251 191 36 / 0.35);
+  border: 3px solid var(--color-surface-raised);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 35%, transparent);
   transition: box-shadow 150ms ease;
 }
 input[type="range"]::-moz-range-thumb:hover {
-  box-shadow: 0 0 14px rgb(251 191 36 / 0.5);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--color-accent) 50%, transparent);
 }
 
 /* ------------------------------------------------------------------ *
  * Motion
  *
  * A handful of keyframes, written here rather than pulled from an animation
- * library. Framer Motion is installed but unused, and adding ~35 kB gzip to a
- * 75 kB bundle to fade a paragraph in would be a poor trade: these three effects
- * are the entire motion vocabulary of the shell.
+ * library. `motion` *was* a dependency and was never imported by anything — it
+ * sat in `package.json` and in `boundary.test.ts`'s forbidden-import list, and
+ * nothing else — so it has been removed rather than left as a ~35 kB promise.
+ * Adding it back to fade a paragraph in would be a poor trade against a 87 kB
+ * initial payload: these three effects are the entire motion vocabulary of the
+ * shell.
  *
  * All of them are neutral (opacity and a few pixels) on purpose. Anything that
  * moved a *layout* box would reintroduce the twitch this app is specifically
@@ -155,6 +282,38 @@ input[type="range"]::-moz-range-thumb:hover {
 
 @utility line-flash {
   animation: line-flash 600ms ease-out both;
+}
+
+/*
+ * A horizontally scrollable row that is always exactly one line tall.
+ *
+ * The header's control row holds presets, parameters, shuffle and "your input",
+ * and it must not wrap: a row that wraps to two lines at some widths and one at
+ * others makes the header's height a function of the window width, which is the
+ * defect this whole layout pass exists to remove.
+ *
+ * `overflow-x: auto` alone is not enough, though, and this is the subtle part.
+ * A visible scrollbar takes layout space, so it appears *only when the content
+ * overflows* — which made the header 10px taller at some widths than at others,
+ * non-monotonically, because whether the row overflows depended on whether the
+ * code panel was a docked column taking 461px of the width. Measured: 77px at
+ * 1200 and at 1920, 87px everywhere between. Hiding the scrollbar removes the
+ * space, so the height stops depending on the content at all.
+ *
+ * Hiding it costs a discoverability cue, which the mask pays back: the right edge
+ * fades out, so a clipped control reads as "there is more this way" rather than
+ * as a rendering bug. The mask is on the scroll container, so it stays pinned to
+ * the edge while the content moves under it.
+ */
+@utility scroll-fade-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%);
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /**

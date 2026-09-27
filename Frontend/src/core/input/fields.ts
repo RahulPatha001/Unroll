@@ -75,8 +75,30 @@ export function isPresetInput(preset: AlgoInput | undefined, input: AlgoInput): 
  */
 export const MAX_FIELD_CHARS = 20_000;
 
-/** Above this the viewport switches from DOM to canvas; worth a warning. */
-export const CANVAS_THRESHOLD = 150;
+/**
+ * Past this, warn that a run is likely to be truncated.
+ *
+ * This used to be `CANVAS_THRESHOLD` and it used to promise that the viewport
+ * would switch to a canvas renderer. It does not. There is no canvas in this
+ * codebase — no `<canvas>`, no `getContext`, nothing — and there has not been
+ * for the whole life of the project. The constant survived in three places
+ * (`docs/architecture.md`, this file, and twenty algorithm `help:` strings)
+ * after the feature it described was never built, which is the worst kind of
+ * documentation: confidently wrong, and impossible to discover by reading the
+ * source it describes.
+ *
+ * The threshold itself is sound, though, and so is the warning — just not
+ * about rendering. The real ceiling is `MAX_FRAMES` in the trace layer, which
+ * truncates rather than throws, so a large input produces a run that quietly
+ * stops early. That is worth warning about, because a student who hits it sees
+ * a trace that ends mid-algorithm with no indication that it was cut short.
+ *
+ * Above the threshold a single cell is also below the point where the viewport
+ * can stay legible: cells shrink to a 12px floor, then drop to a compact grid
+ * with no room for a label. So the number still means something — just not
+ * what it used to claim.
+ */
+export const LARGE_INPUT_THRESHOLD = 150;
 
 /* ------------------------------------------------------------------ *
  * Seeding: AlgoInput → the text the editor opens with
