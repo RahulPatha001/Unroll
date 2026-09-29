@@ -1,5 +1,21 @@
 {
   "readings": {
+    "dijkstra@2560x1400": {
+      "header": 77,
+      "narration": 104,
+      "region": 1096,
+      "transport": 99,
+      "viewportWidth": 2560,
+      "documentScrollWidth": 2560
+    },
+    "bubble-sort@2560x1400": {
+      "header": 77,
+      "narration": 104,
+      "region": 1096,
+      "transport": 99,
+      "viewportWidth": 2560,
+      "documentScrollWidth": 2560
+    },
     "dijkstra@1920x1080": {
       "header": 77,
       "narration": 104,
@@ -32,6 +48,22 @@
       "viewportWidth": 1440,
       "documentScrollWidth": 1440
     },
+    "dijkstra@1281x900": {
+      "header": 77,
+      "narration": 104,
+      "region": 596,
+      "transport": 99,
+      "viewportWidth": 1281,
+      "documentScrollWidth": 1281
+    },
+    "bubble-sort@1281x900": {
+      "header": 77,
+      "narration": 104,
+      "region": 596,
+      "transport": 99,
+      "viewportWidth": 1281,
+      "documentScrollWidth": 1281
+    },
     "dijkstra@1280x800": {
       "header": 77,
       "narration": 104,
@@ -63,6 +95,22 @@
       "transport": 99,
       "viewportWidth": 1024,
       "documentScrollWidth": 1024
+    },
+    "dijkstra@768x900": {
+      "header": 77,
+      "narration": 104,
+      "region": 596,
+      "transport": 99,
+      "viewportWidth": 768,
+      "documentScrollWidth": 768
+    },
+    "bubble-sort@768x900": {
+      "header": 77,
+      "narration": 104,
+      "region": 596,
+      "transport": 99,
+      "viewportWidth": 768,
+      "documentScrollWidth": 768
     },
     "dijkstra@390x844": {
       "header": 77,

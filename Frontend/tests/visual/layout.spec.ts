@@ -107,12 +107,28 @@ async function measure(page: import('@playwright/test').Page): Promise<Reading> 
   });
 }
 
-/** Viewports from the plan's diagnosis table. */
+/**
+ * Viewports from the plan's diagnosis table, plus the ones its acceptance
+ * criterion names but the table does not contain.
+ *
+ * `768` and `1281` are the two widths here that are not round numbers, and both
+ * earn their place. 768 is a real tablet width sitting in the awkward band where
+ * the nav is a column but the code panel is still a drawer — the band the pane
+ * model exists for. `1281` is one pixel above Tailwind's `xl`, where the code
+ * panel flips from drawer to docked column, and a breakpoint off-by-one is
+ * invisible at 1280 and at 1440 while being the entire bug at 1281.
+ *
+ * `2560` is the plan's stated upper bound — "zero horizontal document overflow,
+ * 390 -> 2560" — which was previously asserted only as far as 1920.
+ */
 const VIEWPORTS = [
+  { width: 2560, height: 1400 },
   { width: 1920, height: 1080 },
   { width: 1440, height: 900 },
+  { width: 1281, height: 900 },
   { width: 1280, height: 800 },
   { width: 1024, height: 768 },
+  { width: 768, height: 900 },
   { width: 390, height: 844 },
 ] as const;
 
@@ -305,10 +321,14 @@ test.describe('the header does not resize with the window', () => {
    * would have sailed through a one-algorithm sweep.
    */
   const ALGOS = ['dijkstra', 'bubble-sort', 'lcs', 'trie', 'hash-table', 'avl-rotate'];
-  const WIDTHS = [1024, 1100, 1200, 1280, 1320, 1440, 1536, 1600, 1920, 2560];
+  const WIDTHS = [768, 1024, 1100, 1200, 1280, 1281, 1320, 1440, 1536, 1600, 1920, 2560];
+
+  // Named from the sweep rather than typed, so widening `WIDTHS` above cannot
+  // leave a test claiming a range it no longer covers.
+  const span = `${WIDTHS[0]}-${WIDTHS[WIDTHS.length - 1]}`;
 
   for (const algo of ALGOS) {
-    test(`header height is constant across 1024-2560 for ${algo}`, async ({ page, baseURL }) => {
+    test(`header height is constant across ${span} for ${algo}`, async ({ page, baseURL }) => {
       await page.setViewportSize({ width: 1920, height: 900 });
       await settle(page, baseURL ?? '', { algo, frame: 12 }, { highlight: 'any' });
 
@@ -325,7 +345,7 @@ test.describe('the header does not resize with the window', () => {
 
       expect(
         [...new Set(heights)],
-        `${algo} header height varied across 1024-2560: ${heights.join(', ')}px`,
+        `${algo} header height varied across ${span}: ${heights.join(', ')}px`,
       ).toHaveLength(1);
     });
   }

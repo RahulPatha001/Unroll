@@ -132,13 +132,26 @@ export function InputEditor({ algo }: { algo: AlgoDef }) {
     typed 5 values against a default of 8 is fine, which is exactly what the e2e
     test does, and warning there would be crying wolf.
   */
-  const params = usePlayer((s) => s.params);
+  /*
+    The only truncation that can still happen is the ceiling.
+
+    This used to fire whenever the input was longer than the current `size`
+    value, which was almost always — the default is 8, so pasting 30 values warned
+    and then truncated anyway, and pressing Run produced exactly the surprise the
+    warning was describing. `run` now raises `size` to fit, so the parameter can
+    only be the binding constraint when the input is longer than the parameter is
+    *able* to express.
+
+    Which is what makes the number worth printing. "Some of your input will be
+    ignored" is not actionable; "this draws up to 150 at once, so this run uses
+    the first 150 of your 500" is something a student can act on or decide
+    against.
+  */
   const truncating = useMemo(() => {
     const spec = algo.params.find((p) => p.key === 'size' && p.kind === 'number');
-    if (!spec) return null;
-    const limit = Number(params[spec.key] ?? spec.default);
-    return Number.isFinite(limit) && limit < size ? { label: spec.label, value: limit } : null;
-  }, [algo.params, params, size]);
+    if (!spec || spec.max === undefined) return null;
+    return size > spec.max ? { ceiling: spec.max, size, label: spec.label } : null;
+  }, [algo.params, size]);
   const paramKeys = useMemo(
     () =>
       new Set(
@@ -168,6 +181,15 @@ export function InputEditor({ algo }: { algo: AlgoDef }) {
       const value = parsed.values[key];
       if (spec && typeof value === 'number') void setParam(spec, value);
     }
+
+    /*
+      `setInput` is the single funnel for "a person supplied this input", and it
+      raises a truncating `size` param to fit before building. That used to be
+      done here instead, which fixed the editor and left the share-link path
+      still dropping 32 of 40 values with no warning — the same bug through a
+      different door, which is what a fix in a component always risks being. See
+      `fitSizeParam` in `playerStore.ts`.
+    */
     void setInput(built);
     setOpen(false);
   };
@@ -273,9 +295,11 @@ export function InputEditor({ algo }: { algo: AlgoDef }) {
         */}
         {truncating !== null ? (
           <p className="text-[11px] text-accent-hover/90">
-            The <span className="font-semibold">{truncating.label}</span> parameter is{' '}
-            {truncating.value}, so this run uses only the first {truncating.value} of your {size}{' '}
-            values. Raise it in the header to use them all.
+            {truncating.size} values is more than{' '}
+            <span className="font-semibold">{truncating.label}</span> can show: it is capped at{' '}
+            {truncating.ceiling}, past which the cells get too small to read and a long run can hit
+            the 50,000-frame cap. This run uses the first {truncating.ceiling}. Everything you typed
+            is kept in the link, so nothing is lost.
           </p>
         ) : null}
 

@@ -84,6 +84,23 @@ export function LessonHeader({ algo }: { algo: AlgoDef }) {
   const frame = useCurrentFrame();
   const traits = collectTraits(algo);
 
+  /*
+    The ceiling a `regeneratesInput` control may offer.
+
+    `size` regenerates the input when it changes, so for a preset its range is the
+    full 2-150. For a *custom* input it is not, and pretending otherwise is how a
+    student ends up dragging a field to 50 and watching the run refuse to grow:
+    growing a custom input would mean inventing values they did not type, which is
+    the opposite of what "your input" means. So the range narrows to what they
+    actually supplied, putting the limit on the control where they can see it
+    rather than swallowing the keystroke somewhere invisible.
+  */
+  const inputCount = inputSize(input);
+  const ceilingFor = (spec: ParamSpec): number | undefined =>
+    spec.regeneratesInput && custom
+      ? Math.min(spec.max ?? Number.POSITIVE_INFINITY, Math.max(2, inputCount))
+      : spec.max;
+
   return (
     <header className="relative z-20 shrink-0 border-b border-border/80 bg-surface-raised/60 backdrop-blur-sm">
       {/* Row 1: identity, and the two things that toggle whole panels. */}
@@ -223,6 +240,7 @@ export function LessonHeader({ algo }: { algo: AlgoDef }) {
             <ParamControl
               key={spec.key}
               spec={spec}
+              max={ceilingFor(spec)}
               value={params[spec.key] ?? spec.default}
               // `setParam` re-runs on its own. An extra `rerun()` here used to
               // paper over that, at the cost of building every trace twice per
@@ -481,13 +499,40 @@ function ComplexityCell({
  * refuse to shrink, so a label that can shrink will always choose to wrap
  * instead, and `flex-nowrap` on the parent does not stop it.
  */
+/*
+ * A `min`/`max` on a number input is advice, not enforcement.
+ *
+ * The browser clamps arrow-key stepping and honours the attribute on form
+ * submission, but it does **not** clamp typed text: type `999` into a field
+ * declared `max={150}` and the field keeps 999. That is not a cosmetic gap.
+ * `size` is the parameter 28 algorithms slice their input with, so a field
+ * showing 999 next to a header reading `n = 8` is two pieces of screen
+ * disagreeing about the same run, and nothing on the page says which is right.
+ *
+ * So the value is clamped on the way in, and an unparseable field falls back to
+ * the spec's default rather than becoming `NaN` — a `NaN` in `params` propagates
+ * into the algorithm and produces a trace that is quietly wrong rather than one
+ * that visibly failed.
+ */
+function clampParam(spec: ParamSpec, raw: string, max?: number): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return Number(spec.default);
+  if (spec.min !== undefined && n < spec.min) return spec.min;
+  const ceiling = max ?? spec.max;
+  if (ceiling !== undefined && n > ceiling) return ceiling;
+  return n;
+}
+
 function ParamControl({
   spec,
   value,
+  max,
   onChange,
 }: {
   spec: ParamSpec;
   value: number | string | boolean;
+  /** Overrides `spec.max`; the header narrows it for a custom input. */
+  max?: number;
   onChange: (v: number | string | boolean) => void;
 }) {
   const LABEL =
@@ -548,9 +593,9 @@ function ParamControl({
         type="number"
         value={Number(value)}
         min={spec.min}
-        max={spec.max}
+        max={max ?? spec.max}
         step={spec.step ?? 1}
-        onChange={(e) => onChange(Number(e.target.value))}
+        onChange={(e) => onChange(clampParam(spec, e.target.value, max))}
         className="w-16 shrink-0 rounded border border-border-strong bg-surface-inset px-1 py-0.5 text-[11px] text-text tabular-nums"
       />
     </label>

@@ -15,7 +15,31 @@ import { resolveStyle, styleForKey } from './palette.ts';
  */
 
 const BOX = 30;
-const GAP_X = 34;
+
+/*
+ * The horizontal gap between a node box and the next one along, and why it is 14
+ * and not 4.
+ *
+ * Every edge is labelled with the character it is keyed on, because the whole
+ * point of a trie is that you can see *which character* the walk is currently
+ * following. The label is `text-[11px]`, and inside an SVG with a `viewBox` a
+ * `px` font size is in **user units, not screen pixels** — so it is an 11-unit
+ * glyph, and a single character is roughly 7 units wide.
+ *
+ * `GAP_X - BOX` used to be 4. A 7-unit glyph centred in a 4-unit gap overhangs
+ * the boxes on *both* sides, and it had done so for the whole life of this view.
+ * It was invisible because the drawing was also tiny: at 166px wide the labels
+ * were about 4px, and nobody could read them well enough to notice they were
+ * resting on the corners of the boxes they named. Fitting the view to its box
+ * fixed the size and exposed the defect, which is the uncomfortable way to
+ * discover that a constant was always wrong.
+ *
+ * Measured at 2.5x before the fix: all eight stray labels overlapped a node box,
+ * by 1.2-1.4 units horizontally. 14 units of gap clears the widest glyph with
+ * room to spare, and costs horizontal space that fit-to-box absorbs.
+ */
+const EDGE_LABEL_GAP = 14;
+const GAP_X = BOX + EDGE_LABEL_GAP;
 const GAP_Y = 52;
 const MARGIN = 30;
 
@@ -35,15 +59,11 @@ const MARGIN = 30;
  * its height. The point of a left-to-right trie is that the path reads as a
  * path, and at 166px wide you could not see it.
  *
- * The cap is where this view is most constrained, and the reason is geometric
- * rather than aesthetic. `GAP_X - BOX` is four units, and the character on each
- * edge is an 11px glyph centred in that four-unit gap — so the labels have
- * always overlapped their neighbours a little, by about a pixel and a half. That
- * ratio does not change when the drawing is scaled, but its *visibility* does:
- * below about 1.5x the glyphs are too small to notice, and at the cap they
- * visibly rest on the corners of the boxes they name. A higher cap makes that
- * worse and fixes nothing. The fix for that is `GAP_X`, which is a layout change
- * to every node's x coordinate and therefore not this commit's business.
+ * The cap used to be argued from a defect rather than a taste: the edge labels
+ * overlapped the node boxes, so raising the zoom made the overlap more obvious
+ * and the cap was the only thing keeping it tolerable. That argument is gone —
+ * `EDGE_LABEL_GAP` above fixes the cause — so 2.5 is now a judgement about how
+ * large a two-node diagram should get, and nothing more.
  */
 const PAD = 4;
 const MAX_ZOOM = 2.5;

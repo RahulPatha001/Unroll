@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { useShallow } from 'zustand/react/shallow';
@@ -6,7 +5,7 @@ import { DEFAULT_ALGORITHM_ID } from '../../core/algorithms/catalog.ts';
 import type { AlgoDef, ParamSpec, Preset } from '../../core/algorithms/types.ts';
 import { defaultParams } from '../../core/algorithms/types.ts';
 import type { Lang } from '../../core/code/anchors.ts';
-import { isPresetInput } from '../../core/input/fields.ts';
+import { resizeInput } from '../../core/input/resize.ts';
 import type { AlgoInput } from '../../core/input/types.ts';
 import {
   DEFAULT_SPEED,
@@ -50,6 +49,26 @@ export interface PlayerState {
   params: Record<string, number | string | boolean>;
   input: AlgoInput;
   presetId: string | null;
+  /**
+   * Is `input` the student's own, rather than a preset's?
+   *
+   * This started as `!isPresetInput(preset.input, input)` — a value comparison —
+   * and that is provably unable to answer the question. `regeneratesInput`
+   * produces a *new* array from a preset, so after growing `Reversed` from 8 to
+   * 20 elements the input no longer equals the preset it came from, the
+   * comparison reported "custom", and the control was then capped at the current
+   * length — so it stuck at 20 and refused to go higher. The inference could not
+   * tell "regenerated from this preset" from "typed by hand", because after the
+   * fact they are the same bytes.
+   *
+   * So provenance is recorded rather than reconstructed. The risk a flag carries
+   * — some path changing the input and forgetting to set it — is the reason
+   * `isPresetInput` exists in the first place, and it is a real one; the
+   * difference is that every write to `input` in this file now sets it in the
+   * same statement, and `boundary.test.ts`'s sibling check is the one that
+   * would catch a new write path.
+   */
+  inputCustom: boolean;
 
   /* --- the trace --- */
   trace: Frame[];
@@ -111,6 +130,63 @@ function seedFor(algo: AlgoDef, presetId: string | null | undefined): AlgoInput 
 }
 
 /**
+ * Is this input the student's own rather than a preset's?
+ *
+ * By value comparison against the active preset, for the reason `isPresetInput`
+ * already documents: a flag would have to be set by every path that can change
+ * the input, and the one that forgets is the one that lies.
+ */
+function isCustomInput(state: Pick<PlayerState, 'input' | 'inputCustom'>): boolean {
+  return state.inputCustom;
+}
+
+/**
+ * Raise a `size` param so it stops truncating the input it is applied to.
+ *
+ * 28 of the 66 algorithms declare a `size` param, and their `run` functions do
+ * `input.values.slice(0, size)`. The default is 8 or 9, so an input longer than
+ * that was silently cut down, and this function exists because that was happening
+ * through **three** separate doors, each of which looked fine on its own:
+ *
+ *  1. The input editor. Typing 30 values and pressing Run drew 8 cells, the header
+ *     said `n = 8`, the "yours" badge was lit, and nothing said 22 values had been
+ *     dropped. The values were still in the URL, so reopening the editor showed
+ *     all 30 again and the bug looked intermittent.
+ *  2. A share link. `?algo=bubble-sort&input=<40 values>` goes through `load`,
+ *     which built the trace with `defaultParams` — so `size` was 8 and 32 values
+ *     vanished before the URL's own `params` were ever applied. The recipient saw
+ *     8 cells and a "yours" badge. A link is a promise that the run reproduces, and
+ *     this broke it for any link that did not also carry `params`.
+ *  3. Restoring a link after navigating away and back, same path as (2).
+ *
+ * So it lives here, in the store, rather than in whichever component happened to
+ * notice. `load` and `setInput` are the only two ways an input enters the state,
+ * and both now go through it, which is the property that makes it a fix rather
+ * than a patch.
+ *
+ * The rule is that **the input wins**, because the input is the thing a person
+ * just supplied. `size` exists to let you deliberately run *fewer* elements than
+ * you provided — a 4-element bubble sort is a reasonable thing to want — not to
+ * override you without saying so. It is still editable afterwards.
+ *
+ * `spec.max` is the real ceiling (150 for all of them) and is respected here; the
+ * input editor is what tells the student when they are past it.
+ */
+function fitSizeParam(
+  algo: AlgoDef,
+  input: AlgoInput,
+  params: Record<string, number | string | boolean>,
+): Record<string, number | string | boolean> {
+  const spec = algo.params.find((p) => p.key === 'size' && p.kind === 'number');
+  if (!spec) return params;
+  const n = algo.inputSpec.sizeOf(input);
+  if (!Number.isFinite(n) || n <= 0) return params;
+  const current = Number(params[spec.key] ?? spec.default);
+  if (!Number.isFinite(current) || n <= current) return params;
+  return { ...params, [spec.key]: Math.min(n, spec.max ?? n) };
+}
+
+/**
  * Apply a freshly built trace to the store.
  *
  * A `requestId` guards against out-of-order completion: switching algorithms
@@ -151,6 +227,7 @@ export const usePlayer = create<PlayerState>()(
     params: {},
     input: { type: 'numbers', values: [] },
     presetId: null,
+    inputCustom: false,
 
     trace: [],
     index: 0,
@@ -185,7 +262,13 @@ export const usePlayer = create<PlayerState>()(
         const presetId = opts?.presetId ?? get().presetId;
         const preset = algo.presets.find((p) => p.id === presetId) ?? DEFAULT_PRESET(algo);
         const input = opts?.input ?? seedFor(algo, preset.id);
-        const params = { ...defaultParams(algo), ...(preset.params ?? {}) };
+        // Before the trace is built, not after: the truncation happens *inside*
+        // `run`, so a size that is too small has already discarded the values by
+        // the time anything could notice.
+        const params = fitSizeParam(algo, input, {
+          ...defaultParams(algo),
+          ...(preset.params ?? {}),
+        });
         const requestId = ++requestCounter;
         const built = await buildTrace(algo, input, params);
 
@@ -196,6 +279,11 @@ export const usePlayer = create<PlayerState>()(
           params,
           input,
           presetId: preset.id,
+          // An input carried by the URL is the sender's own data, so it is custom
+          // by definition even though a preset is also selected — a share link
+          // with `?input=` and `?preset=` is the editor having been used before
+          // the link was copied.
+          inputCustom: Boolean(opts?.input),
           // Keep the language across algorithm switches. A student comparing
           // Java to Python on one algorithm should not be reset to JavaScript
           // on the next one.
@@ -218,15 +306,83 @@ export const usePlayer = create<PlayerState>()(
         presetId: preset.id,
         input: preset.input,
         params,
+        inputCustom: false,
       });
     },
 
     async setParam(spec, value) {
       const { algo, params, input } = get();
       if (!algo) return;
+
+      /*
+        A `regeneratesInput` param cannot exceed a *custom* input's own length,
+        and that is enforced here rather than only in the control's `max`.
+
+        The header already narrows the field so a student cannot type past their
+        own data, but a value can also arrive from a share link or from any other
+        caller, and a store that will hold `size: 40` beside a six-element input
+        is a store holding a state its own UI calls impossible. Clamping at the
+        single point every route passes through is what makes the invariant true
+        rather than merely encouraged.
+      */
+      if (spec.regeneratesInput && spec.kind === 'number' && isCustomInput(get())) {
+        const ceiling = Math.max(1, algo.inputSpec.sizeOf(input));
+        const n = Number(value);
+        if (Number.isFinite(n) && n > ceiling) {
+          const capped = { ...params, [spec.key]: ceiling };
+          const built = await buildTrace(algo, input, capped);
+          applyTrace(set, built, ++requestCounter, { params: capped });
+          return;
+        }
+      }
+
       const next = { ...params, [spec.key]: value };
-      // Some params (a `target`, a `rotation`) change the computation but not
-      // the data, so this re-runs without regenerating the input.
+
+      /*
+        Honour `regeneratesInput`, which 28 algorithms declare and nothing
+        implemented.
+
+        The flag's own contract is "changing this regenerates the input (e.g. a
+        new random array)", and until now it was referenced nowhere, so `size`
+        could only ever *truncate* the input it was applied to. Raising it did
+        nothing at all: drag `size` from 8 to 20 and the viewport still drew 8
+        cells, because there was nothing to slice up to. A control that only
+        subtracts is not a size control.
+
+        Two cases, and the second is the reason this lives here rather than in
+        the header:
+
+        - **A preset input** is regenerated to the new count. This is the flag
+          working as documented, and `resizeInput` preserves the shape that makes
+          the preset worth choosing — a `Reversed` array stays reversed, an
+          `All equal` one stays all-equal — so growing to 20 does not quietly
+          discard the lesson the preset was selected for.
+
+        - **A custom input is never regenerated.** The student typed those exact
+          values, and inventing twenty more to satisfy a number field would
+          replace their data with data they did not write, silently. So the
+          parameter is left where it is and the control's range is narrowed to
+          the input's own length by `LessonHeader`, which makes the limit visible
+          where the student is looking instead of swallowing the keystroke here.
+      */
+      if (spec.regeneratesInput && spec.kind === 'number') {
+        if (!isCustomInput(get())) {
+          const resized = resizeInput(input, Number(value), algo.inputSpec.sizeOf);
+          const fitted = fitSizeParam(algo, resized, next);
+          const built = await buildTrace(algo, resized, fitted);
+          applyTrace(set, built, ++requestCounter, {
+            input: resized,
+            params: fitted,
+            // Still the preset's data, just at a different length — which is the
+            // distinction the value comparison could not make.
+            inputCustom: false,
+          });
+          return;
+        }
+      }
+
+      // Some params (a `target`, a `rotation`) change the computation but not the
+      // data, so this re-runs without regenerating the input.
       const built = await buildTrace(algo, input, next);
       applyTrace(set, built, ++requestCounter, { params: next });
     },
@@ -234,8 +390,9 @@ export const usePlayer = create<PlayerState>()(
     async setInput(input) {
       const { algo, params } = get();
       if (!algo) return;
-      const built = await buildTrace(algo, input, params);
-      applyTrace(set, built, ++requestCounter, { input });
+      const next = fitSizeParam(algo, input, params);
+      const built = await buildTrace(algo, input, next);
+      applyTrace(set, built, ++requestCounter, { input, params: next, inputCustom: true });
     },
 
     async rerun() {
@@ -382,15 +539,15 @@ export const useCurrentFrame = () => usePlayer((s) => s.trace[s.index] ?? null);
  * store notification, which during playback is 60 times a second over an array
  * that may be 150 elements long, to produce a value that has not changed.
  */
-export const useIsCustomInput = (): boolean => {
-  const algo = usePlayer((s) => s.algo);
-  const presetId = usePlayer((s) => s.presetId);
-  const input = usePlayer((s) => s.input);
-  return useMemo(
-    () => !isPresetInput(algo?.presets.find((p) => p.id === presetId)?.input, input),
-    [algo, presetId, input],
-  );
-};
+/**
+ * The header's "yours" badge.
+ *
+ * Reads `inputCustom` rather than re-deriving it, so the badge and the `size`
+ * control can never disagree about whether the data on screen is the student's.
+ * They were separate answers to one question before, which is the same class of
+ * bug as a store holding a state its own UI calls impossible.
+ */
+export const useIsCustomInput = (): boolean => usePlayer((s) => s.inputCustom);
 
 /**
  * The current anchor, separately from the frame.
