@@ -59,9 +59,15 @@ export function PointerChip({
   const hue = pointerHueClass(placement.name, allNames);
   return (
     <span
+      // `marker-drift` re-runs when the key changes (see CellPointers below),
+      // so a cursor arriving at a new cell glides in rather than popping. The
+      // transition underneath covers the same-element case — a marker holding
+      // its cell while the step changes — so both directions of movement are
+      // smooth and neither depends on measuring the layout.
       className={[
-        'pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-sm px-1',
-        'bg-surface/95 font-bold whitespace-nowrap ring-1 ring-current',
+        'marker-drift pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-md px-1.5',
+        'bg-surface-raised/95 font-bold whitespace-nowrap ring-1 ring-current backdrop-blur-sm',
+        'transition-[bottom,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
         compact ? 'text-[8px] leading-[13px]' : 'text-[10px] leading-4',
         hue,
         placement.offset > 0 ? 'opacity-80' : '',

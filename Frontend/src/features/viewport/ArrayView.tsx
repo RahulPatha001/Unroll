@@ -157,9 +157,14 @@ export const ArrayView = memo(function ArrayView({
                 {useBars ? (
                   <div
                     className={[
-                      'flex items-start justify-center rounded-t-sm border-t-2 pt-1',
+                      'flex items-start justify-center rounded-t-md border-t-2 pt-1',
                       'text-[11px] font-semibold tabular-nums',
-                      'transition-[height,background-color] duration-200 ease-out',
+                      // One shared spring so the whole picture settles together.
+                      // Height is the value changing; background is the meaning
+                      // changing; both ride the same curve and finish together.
+                      // `transform-gpu` keeps the compositor on the fast path
+                      // while the trace rebuilds underneath.
+                      'cell-spring transform-gpu',
                       style.bg,
                       style.border,
                       style.text,
@@ -174,8 +179,8 @@ export const ArrayView = memo(function ArrayView({
                 ) : (
                   <div
                     className={[
-                      'flex h-full items-center justify-center rounded border px-1 text-center',
-                      'text-xs font-semibold tabular-nums transition-colors duration-150',
+                      'flex h-full items-center justify-center rounded-lg border px-1 text-center',
+                      'text-xs font-semibold tabular-nums cell-spring transform-gpu',
                       compact ? 'min-h-5 text-[9px]' : 'min-h-9',
                       style.bg,
                       style.border,

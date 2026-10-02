@@ -109,8 +109,15 @@ const STATES: Array<{
     apply: async (page) => {
       await page.keyboard.press('i');
       const editor = page.getByRole('dialog', { name: /input/i });
-      if ((await editor.count()) === 0) return false;
-      await expect(editor).toBeVisible();
+      // The editor is a lazy chunk behind a Suspense boundary, so it is not
+      // in the DOM on the keystroke — counting immediately races the fetch
+      // and skips a state that exists. Wait briefly; an unreachable editor
+      // still resolves to a skip via the timeout below, not a failure.
+      try {
+        await expect(editor).toBeVisible({ timeout: 5000 });
+      } catch {
+        return false;
+      }
       return true;
     },
   },

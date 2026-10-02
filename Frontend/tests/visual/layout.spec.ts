@@ -62,8 +62,9 @@ if (!existing && !UPDATING) {
  *
  * Measured through `getBoundingClientRect` on the same elements the e2e suite
  * already treats as canonical — the `Algorithm visualisation` region by
- * accessible name, the narration card by its `h-[104px]` box — so this file and
- * `tests/e2e/app.spec.ts` cannot disagree about what "the narration card" is.
+ * accessible name, the narration card by `data-narration`, the header by
+ * `data-lesson-header`, the transport dock by `dock-enter` — so this file and
+ * `tests/e2e/app.spec.ts` cannot disagree about what each box is.
  */
 async function measure(page: import('@playwright/test').Page): Promise<Reading> {
   return page.evaluate(() => {
@@ -72,32 +73,12 @@ async function measure(page: import('@playwright/test').Page): Promise<Reading> 
 
     const main = document.querySelector('main');
     const region = document.querySelector('section[aria-label="Algorithm visualisation"]');
-    const narrationCard = document.querySelector('.h-\\[104px\\]');
-
-    /*
-     * The player's own wrapper, addressed structurally rather than by
-     * sibling-offset. It is the second child of `main` (after the header) and
-     * has exactly three children, in this order:
-     *
-     *     <StepNarration/>  the narration card
-     *     <div class="p-3"> the padding wrapper around the region
-     *     <Transport/>      the transport bar
-     *
-     * Walking to a fixed offset from the narration card is how the transport
-     * got measured as 415px — that is the padding wrapper (391 + 24), one step
-     * short. Nothing failed; the number was simply the wrong box, and a
-     * geometry baseline that pins the wrong box is worse than none, because it
-     * looks authoritative.
-     */
-    const player = main?.children[1] ?? null;
-    const padWrap = region?.parentElement ?? null;
-    const narrationRoot =
-      [...(player?.children ?? [])].find((c) => c.contains(narrationCard)) ?? null;
-    const transport =
-      [...(player?.children ?? [])].find((c) => c !== narrationRoot && c !== padWrap) ?? null;
+    const narrationCard = document.querySelector('[data-narration="true"]');
+    const header = document.querySelector('[data-lesson-header]');
+    const transport = document.querySelector('.dock-enter');
 
     return {
-      header: height(main?.firstElementChild),
+      header: height(header ?? main?.firstElementChild),
       narration: height(narrationCard),
       region: height(region),
       transport: height(transport),
@@ -177,10 +158,23 @@ test.describe('geometry baselines', () => {
 
 test.describe('invariants that hold at every viewport', () => {
   for (const viewport of VIEWPORTS) {
-    test(`the narration card is 104px tall at ${viewport.width}`, async ({ page, baseURL }) => {
+    test(`the narration floats over the stage at ${viewport.width}`, async ({ page, baseURL }) => {
+      // The narration is an overlay now, not a fixed 104px bar above the
+      // viewport. It must exist, and it must not steal layout from the stage:
+      // the region's height is a function of the window, never of the step.
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await settle(page, baseURL ?? '', { algo: 'bubble-sort', frame: 12 }, { highlight: 'any' });
-      expect((await measure(page)).narration, 'the narration card is a fixed-height box').toBe(104);
+      const narration = page.locator('[data-narration="true"]');
+      await expect(narration, 'the floating narration card').toBeVisible();
+      const overlay = await narration.evaluate((el) => {
+        let node: Element | null = el.parentElement;
+        while (node && node.tagName !== 'MAIN') {
+          if (node.className.includes('absolute')) return true;
+          node = node.parentElement;
+        }
+        return false;
+      });
+      expect(overlay).toBe(true);
     });
 
     test(`nothing overflows horizontally at ${viewport.width}`, async ({ page, baseURL }) => {

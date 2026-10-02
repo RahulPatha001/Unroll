@@ -592,3 +592,134 @@ input[type="range"]::-moz-range-thumb:hover {
   height: 1px;
   background: linear-gradient(to right, transparent, var(--color-border-strong), transparent);
 }
+
+/* ------------------------------------------------------------------ *
+ * Motion, part three: the redesigned player stage
+ *
+ * The player used to stack four separate bars — header, narration, viewport,
+ * transport — each with its own entrance and its own timing. Every step fired
+ * three of them at once with slightly different durations, which is what made
+ * stepping feel busy rather than smooth: the eye was asked to track three
+ * unrelated updates that happened to be nearby.
+ *
+ * The redesign gives the stage one motion language, with one rule:
+ *
+ *   **Only opacity and transform animate. Never height, never width.**
+ *
+ * Height and width animations reflow the box the algorithm draws in, and a
+ * reflow inside the visualisation is indistinguishable from the algorithm
+ * having changed something. Opacity and transform are composited on the GPU,
+ * so they stay at a full frame rate even while the trace rebuilds — which is
+ * the actual smoothness problem the old page had. `prefers-reduced-motion`
+ * above still neutralises all of this.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Shared spring for the stage. Slightly longer and softer than `--step-beat`:
+ * the beat is for the algorithm reacting (tight, 260ms), this is for chrome
+ * arriving (calmer, 380ms). Two tempos, each used consistently.
+ */
+@theme {
+  --stage-beat: 380ms;
+  --stage-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/** The stage card settling in when an algorithm loads. */
+@keyframes stage-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/** The floating narration card arriving. Shorter travel than the stage. */
+@keyframes narration-float-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/** The transport dock arriving. Rises from below, like a control surface. */
+@keyframes dock-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/** Pointer markers gliding to their next cell. */
+@keyframes marker-drift {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 4px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+@utility stage-enter {
+  animation: stage-enter var(--stage-beat) var(--stage-ease) both;
+}
+
+@utility narration-float {
+  animation: narration-float-enter 300ms var(--stage-ease) both;
+}
+
+@utility dock-enter {
+  animation: dock-enter var(--stage-beat) var(--stage-ease) both;
+}
+
+@utility marker-drift {
+  animation: marker-drift 300ms var(--stage-ease) both;
+}
+
+/**
+ * The spring every data cell uses when a step changes it.
+ *
+ * One class, applied by every viewport that draws discrete cells. The old page
+ * had three durations across the same interaction (150ms cells, 200ms bars,
+ * 260ms narration), so a single step arrived as a flam rather than a hit. One
+ * timing here means the whole picture settles together.
+ *
+ * `will-change` is scoped to the properties that actually change (background
+ * and height for bars, background for cells) so the browser promotes exactly
+ * the layers it needs and no more.
+ */
+@utility cell-spring {
+  transition:
+    background-color 300ms var(--stage-ease),
+    border-color 300ms var(--stage-ease),
+    height 380ms var(--stage-ease),
+    transform 380ms var(--stage-ease),
+    box-shadow 300ms var(--stage-ease),
+    fill 300ms var(--stage-ease);
+  will-change: background-color, height, transform;
+}
+
+/**
+ * The stage backdrop: a dot grid over the ambient wash.
+ *
+ * The old stage was a flat panel — three grey boxes on a grey page, with
+ * nothing to hold the eye. A faint dot grid gives the visualisation a surface
+ * to sit on without competing with it: dots are texture, not content, and at
+ * 3% opacity they disappear the moment the algorithm draws anything.
+ */
+@utility stage-dots {
+  background-image: radial-gradient(rgb(148 163 184 / 0.14) 1px, transparent 1px);
+  background-size: 22px 22px;
+}

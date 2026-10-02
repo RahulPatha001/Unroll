@@ -125,6 +125,13 @@ export async function settlePage(scope: Locator): Promise<void> {
     .poll(
       async () => {
         if (await scope.locator('text=Loading the trace…').count()) return 'loading';
+        // The trace resolves before its renderer arrives: the step readout
+        // (`1/69`) exists while the lazy viewport chunk is still in flight and
+        // the box shows "Preparing the view…". Accepting the readout as
+        // "drew" froze that placeholder into a baseline, which then flakes
+        // against any run where the chunk wins the race. Wait for the real
+        // picture, not just for the caption of one.
+        if (await scope.locator('text=Preparing the view…').count()) return 'loading';
         if ((await drewSomething.count()) > 0) return 'drew';
         if (await readout.count()) {
           const text = await readout.innerText();
@@ -134,8 +141,12 @@ export async function settlePage(scope: Locator): Promise<void> {
         return 'pending';
       },
       { timeout: 20_000, message: 'the embedded visualisation never resolved a trace' },
+      // `toBe('drew')`, not `not.toBe('pending')`: the poll must keep waiting
+      // through the 'loading' states, not succeed on the first one it sees.
+      // The previous form returned the moment the stepper admitted it was
+      // loading — which is how a baseline of the placeholder got committed.
     )
-    .not.toBe('pending');
+    .toBe('drew');
 }
 
 /**

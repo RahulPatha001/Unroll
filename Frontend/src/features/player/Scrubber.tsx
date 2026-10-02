@@ -4,28 +4,14 @@ import { cn } from '../../lib/utils.ts';
 /**
  * A scrubber with a visible track.
  *
- * ## Why this component exists at all
- *
- * Because `index.css` styles `input[type="range"]` globally, and part of that is
- * `-webkit-appearance: none; background: transparent`. That is right for the main
- * transport, which draws its own filled track behind the input — and it means every
- * *other* range input in the app renders as a bare thumb floating on the panel
- * colour, with nothing to indicate how far along it is.
- *
- * The article stepper and the compare page both had exactly that: a wide empty gap
- * where the slider should be. Not a bug anyone would file — you cannot tell a missing
- * control from a control that is merely subtle until you try to use it.
- *
- * So this is the transport's pattern, extracted: an opaque track, a filled
- * proportion behind it, and the real input on top, transparent. It reads position by
+ * The transport's pattern, extracted: an opaque track, a filled proportion
+ * behind it, and the real input on top, transparent. It reads position by
  * sight, which is the whole point of a scrubber.
  *
- * ## Why the input stays on top rather than being replaced by a div
- *
- * Because a `<div>` cannot be dragged, cannot be focused, cannot be operated with the
- * arrow keys, and announces nothing. The visible track is decoration *underneath* a
- * real, accessible control that keeps its `aria-valuetext` — which is what makes
- * "step 12 of 69" available to a screen reader rather than only visible.
+ * The input stays on top rather than being replaced by a div because a `<div>`
+ * cannot be dragged, focused, operated with arrow keys, or announced. The
+ * visible track is decoration *underneath* a real, accessible control that
+ * keeps its `aria-valuetext` — "step 12 of 69" for a screen reader.
  */
 
 export function Scrubber({
@@ -54,19 +40,23 @@ export function Scrubber({
   const pct = max > 0 ? (index / max) * 100 : 0;
 
   return (
-    <div className={cn('flex items-center gap-2.5', className)}>
+    <div className={cn('group/scrub flex items-center gap-2.5', className)}>
       {before}
-      <div className="relative min-w-0 flex-1">
+      <div className="relative min-w-0 flex-1 py-1.5">
         {/*
-          The track and the fill.
-
-          `pointer-events-none` because the input sits on top and owns the drag; the
-          fill is purely a readout of the same number the input already has, so
-          clicking it must go to the input rather than to a div that ignores clicks.
+          The track and the fill. `pointer-events-none` because the input sits
+          on top and owns the drag; the fill is a readout of the same number
+          the input already has.
         */}
-        <div className="pointer-events-none absolute top-1/2 h-1.5 w-full -translate-y-1/2 overflow-hidden rounded-full bg-surface-inset">
+        <div className="pointer-events-none absolute top-1/2 h-1.5 w-full -translate-y-1/2 overflow-hidden rounded-full bg-surface-inset ring-1 ring-border/50 ring-inset">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-accent-deep via-accent to-accent-hover shadow-sm shadow-accent-deep/25 transition-[width] duration-100"
+            className={cn(
+              'h-full rounded-full bg-gradient-to-r from-accent-deep via-accent to-accent-hover',
+              'shadow-sm shadow-accent-deep/25',
+              // The fill chases the thumb on one spring so scrubbing reads as
+              // a single motion rather than two elements disagreeing.
+              'transition-[width] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] will-change-[width]',
+            )}
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -81,11 +71,12 @@ export function Scrubber({
           aria-valuetext={valueText}
           className={cn(
             'relative h-1.5 w-full cursor-pointer appearance-none rounded-full bg-transparent',
-            // The thumb is 16px in the global stylesheet but the track here is 6px,
-            // so without this the thumb overhangs by 5px on each side and drags the
-            // perceived row height up with it.
             '[&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4',
             '[&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4',
+            // The thumb breathes on hover so the grab target feels alive
+            // without moving the row it sits in.
+            '[&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:duration-150',
+            'hover:[&::-webkit-slider-thumb]:scale-110 active:[&::-webkit-slider-thumb]:scale-95',
             'disabled:pointer-events-none disabled:opacity-40',
           )}
         />
