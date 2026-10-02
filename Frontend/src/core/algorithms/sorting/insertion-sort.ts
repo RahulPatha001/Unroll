@@ -408,7 +408,7 @@ export const insertionSortAlgo: AlgoDef<ArrayFrame> = {
       step: 1,
       default: 9,
       regeneratesInput: true,
-      help: 'Beyond 150 the viewport switches to canvas.',
+      help: 'Past 150 elements the cells get too small to read, and a long run can hit the frame cap and stop early.',
     },
   ],
   inputSpec,

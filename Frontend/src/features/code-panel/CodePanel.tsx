@@ -89,7 +89,7 @@ export function CodePanel({ onClose }: { onClose?: () => void }) {
 
   if (!algo || !parsed) {
     return (
-      <div className="flex h-full items-center justify-center p-6 text-sm text-slate-500">
+      <div className="flex h-full items-center justify-center p-6 text-sm text-text-subtle">
         Select an algorithm to see its code.
       </div>
     );
@@ -99,7 +99,7 @@ export function CodePanel({ onClose }: { onClose?: () => void }) {
   const note = anchor ? (algo.lesson.notes[lang]?.[anchor] ?? null) : null;
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col bg-slate-950/50">
+    <div className="flex h-full min-h-0 flex-1 flex-col bg-surface/50">
       <div className="flex items-center">
         <div className="min-w-0 flex-1">
           <LanguageTabs lang={lang} />
@@ -108,7 +108,7 @@ export function CodePanel({ onClose }: { onClose?: () => void }) {
           <button
             type="button"
             onClick={onClose}
-            className="mr-2 shrink-0 rounded p-1 text-slate-500 hover:bg-slate-800 hover:text-slate-300 xl:hidden"
+            className="mr-2 shrink-0 rounded p-1 text-text-subtle hover:bg-surface-inset hover:text-text-muted xl:hidden"
             aria-label="Close the code panel"
           >
             <X className="size-4" />
@@ -140,25 +140,25 @@ export function CodePanel({ onClose }: { onClose?: () => void }) {
         cannot get it back. Collapsed it is one line that still names the step, so
         nothing is more than a click away and the listing gets the room.
       */}
-      <div className="shrink-0 border-t border-slate-800/80 bg-slate-900/70">
+      <div className="shrink-0 border-t border-border/80 bg-surface-raised/70">
         {anchor ? (
           <>
             <button
               type="button"
               onClick={() => setExplained((v) => !v)}
               aria-expanded={explained}
-              className="flex w-full items-center gap-2 px-4 py-2 text-left transition-colors hover:bg-slate-800/40"
+              className="flex w-full items-center gap-2 px-4 py-2 text-left transition-colors hover:bg-surface-inset/40"
             >
-              <Code2 className="size-3 shrink-0 text-amber-400" />
-              <span className="text-[11px] text-slate-400">line</span>
-              <span className="font-mono text-[11px] font-bold text-amber-300 tabular-nums">
+              <Code2 className="size-3 shrink-0 text-accent" />
+              <span className="text-[11px] text-text-muted">line</span>
+              <span className="font-mono text-[11px] font-bold text-accent-hover tabular-nums">
                 {range?.start ?? '?'}
               </span>
               <span className="text-slate-700">·</span>
-              <span className="truncate font-mono text-[11px] text-slate-300">{anchor}</span>
+              <span className="truncate font-mono text-[11px] text-text-muted">{anchor}</span>
               <ChevronUp
                 className={[
-                  'ml-auto size-3.5 shrink-0 text-slate-500 transition-transform duration-200',
+                  'ml-auto size-3.5 shrink-0 text-text-subtle transition-transform duration-200',
                   explained ? '' : 'rotate-180',
                 ].join(' ')}
               />
@@ -179,16 +179,16 @@ export function CodePanel({ onClose }: { onClose?: () => void }) {
               className={explained ? 'px-4 pb-3' : 'hidden'}
             >
               {note ? (
-                <p className="text-[13px] leading-relaxed text-slate-200">
+                <p className="text-[13px] leading-relaxed text-text">
                   <Em text={note} />
                 </p>
               ) : (
-                <p className="text-[13px] text-slate-500">No explanation for this step yet.</p>
+                <p className="text-[13px] text-text-subtle">No explanation for this step yet.</p>
               )}
             </div>
           </>
         ) : (
-          <div className="flex items-center gap-2 px-4 py-3 text-[13px] text-slate-500">
+          <div className="flex items-center gap-2 px-4 py-3 text-[13px] text-text-subtle">
             <Info className="size-3.5 shrink-0" />
             Press play — the line being executed is highlighted here in all four languages.
           </div>
@@ -207,7 +207,7 @@ export function LanguageTabs({ lang, compact = false }: { lang: Lang; compact?: 
 
   return (
     <div
-      className="flex shrink-0 items-center gap-1 border-b border-slate-800/80 bg-slate-900/70 px-2 py-1.5"
+      className="flex shrink-0 items-center gap-1 border-b border-border/80 bg-surface-raised/70 px-2 py-1.5"
       role="tablist"
       aria-label="Implementation language"
     >
@@ -225,15 +225,15 @@ export function LanguageTabs({ lang, compact = false }: { lang: Lang; compact?: 
               'rounded px-2.5 py-1 text-xs font-semibold transition-colors',
               compact && 'px-1.5 text-[11px]',
               active
-                ? 'rounded-md bg-amber-400 text-slate-950 shadow-sm shadow-amber-500/20'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200',
+                ? 'rounded-md bg-accent text-text-inverse shadow-sm shadow-accent-deep/20'
+                : 'text-text-muted hover:bg-surface-inset hover:text-text',
             )}
           >
             {compact ? LANG_META[l].short : LANG_LABEL[l]}
           </button>
         );
       })}
-      <span className="ml-auto flex items-center gap-1 pr-1 text-[10px] text-slate-600">
+      <span className="ml-auto flex items-center gap-1 pr-1 text-[10px] text-text-faint">
         <ArrowRight className="size-3" />
         same step, four languages
       </span>

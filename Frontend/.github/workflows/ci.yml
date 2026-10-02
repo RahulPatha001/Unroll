@@ -70,11 +70,56 @@ jobs:
         run: npm run build
       - name: Bundle budget
         run: node tools/budget.mjs
+      - name: Token layer emits CSS
+        # A misspelled or undeclared token renders as an element with no colour
+        # and a green build. The unit test catches typos; only this, reading the
+        # built CSS, catches a token that was never declared.
+        run: npm run check:tokens
       - name: E2E
         run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  visual:
+    name: layout and screenshot baselines
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium
+        # The baselines are rasterised by one engine and only that engine
+        # compares them, so a WebKit or Firefox run would fail on font metrics
+        # alone. Chromium only, deliberately.
+        run: npx playwright install --with-deps chromium
+      - name: Build
+        # A dev server would make every baseline a lie: a different module
+        # graph, different font loading, an HMR client in the picture.
+        run: npm run build
+      - name: Geometry and screenshot baselines
+        run: npm run test:visual
+      - name: Upload baseline diffs
+        # Both images, not just the actual. A pixel diff nobody can see is a
+        # pixel diff nobody will believe, and "it looks the same to me" is how a
+        # real regression gets merged.
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-baseline-diffs
+          path: |
+            tests/visual/screens.spec.ts-snapshots/*-diff.png
+            tests/visual/screens.spec.ts-snapshots/*-actual.png
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-visual
           path: playwright-report/
           retention-days: 7

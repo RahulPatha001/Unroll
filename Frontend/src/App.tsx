@@ -3,6 +3,7 @@ import { CodePanel } from './features/code-panel/CodePanel.tsx';
 import { LessonHeader } from './features/controls/LessonHeader.tsx';
 import { InputEditor } from './features/input/InputEditor.tsx';
 import { Sidebar } from './features/nav/Sidebar.tsx';
+import { CODE_DOCKED_QUERY, NAV_DOCKED_QUERY } from './features/player/panes.ts';
 import {
   useAlgo,
   useCurrentFrame,
@@ -28,6 +29,27 @@ import { Viewport } from './features/viewport/Viewport.tsx';
  * the code are the same program — hiding one of them behind a toggle would
  * quietly contradict that. On narrow screens it becomes a drawer instead, since
  * a 300px code listing next to a 300px viewport helps nobody.
+ *
+ * ## The breakpoint bands
+ *
+ * | Width | Nav | Code |
+ * | --- | --- | --- |
+ * | >= 1280 (`xl`) | column | column |
+ * | 1024-1279 (`lg`) | column | drawer |
+ * | < 1024 | drawer | drawer, one at a time |
+ *
+ * The 1024-1279 band is the interesting one and the reason the pane model is
+ * about drawers rather than about panes: the nav is a genuine column there while
+ * the code panel is a drawer over it, so two panes are visible at once and only
+ * one of them is an overlay. A rule of "at most one pane visible" would have
+ * forced the nav away in a width that has room for it.
+ *
+ * What this deliberately does *not* do is un-dock the nav below 1536. There is
+ * room for a 288px rail beside a 460px code panel and a 690px visualisation at
+ * 1440, and an e2e test asserts the rail is there. The original plan proposed
+ * making it a slide-over across that whole band; that would have bought nothing
+ * (the metric that matters is *height*, and the rail is a horizontal column) and
+ * cost a test rewrite at the exact viewport the metric is measured at.
  */
 export function App() {
   const status = useStatus();
@@ -58,21 +80,43 @@ export function App() {
     void loadFromUrl();
   }, []);
 
+  /*
+   * Re-reconcile the panes when the window crosses a docking threshold.
+   *
+   * The store guarantees "at most one drawer" when a *pane* is opened or closed,
+   * and a resize is not that. A student with the nav column and the code column
+   * both open at 1440px who drags the window down to 900px would otherwise land
+   * in exactly the stacked-drawer state the whole pane model exists to prevent
+   * — reached by the one route that does not go through a setter.
+   *
+   * `matchMedia` rather than a `resize` listener because this only cares about
+   * two thresholds, and a listener would fire on every pixel of a drag.
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const sync = () => usePlayer.getState().syncPanesToWidth();
+    const queries = [NAV_DOCKED_QUERY, CODE_DOCKED_QUERY].map((q) => window.matchMedia(q));
+    for (const q of queries) q.addEventListener('change', sync);
+    return () => {
+      for (const q of queries) q.removeEventListener('change', sync);
+    };
+  }, []);
+
   return (
-    <div className="app-backdrop flex h-dvh overflow-hidden text-slate-100">
+    <div className="app-backdrop flex h-dvh overflow-hidden text-text">
       <Sidebar />
 
       <main className="flex min-w-0 flex-1 flex-col">
         {algo ? <LessonHeader algo={algo} /> : null}
 
         {status === 'loading' ? (
-          <div className="flex flex-1 items-center justify-center text-sm text-slate-500">
+          <div className="flex flex-1 items-center justify-center text-sm text-text-subtle">
             Loading…
           </div>
         ) : null}
 
         {status === 'error' ? (
-          <div className="flex flex-1 items-center justify-center text-sm text-rose-400">
+          <div className="flex flex-1 items-center justify-center text-sm text-danger">
             Something went wrong loading this algorithm.
           </div>
         ) : null}
@@ -98,7 +142,7 @@ export function App() {
                   on screen that is supposed to only ever change because the
                   algorithm changed it. */}
               <section
-                className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-950/50 shadow-xl shadow-black/25"
+                className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border/80 bg-surface/50 shadow-xl shadow-black/25"
                 aria-label="Algorithm visualisation"
               >
                 <Viewport frame={frame} showPointerLabels={showPointerLabels} />
@@ -118,22 +162,38 @@ export function App() {
 
       <aside
         className={[
-          'flex shrink-0 flex-col border-l border-slate-800/80',
+          'flex shrink-0 flex-col border-l border-border/80',
           // A real column on wide screens, an overlay drawer below that.
           'fixed inset-y-0 right-0 z-40 w-[min(92vw,520px)] transition-transform duration-200',
           'xl:static xl:w-[clamp(360px,32vw,560px)] xl:translate-x-0',
           codeOpen ? 'translate-x-0' : 'translate-x-full xl:hidden',
         ].join(' ')}
         aria-label="Code"
+        id="code-panel"
       >
         <CodePanel onClose={() => setCodeOpen(false)} />
       </aside>
 
+      {/*
+        The scrim: a click-anywhere-else convenience, and deliberately *not* in
+        the accessibility tree.
+
+        It used to carry `aria-label="Close the code panel"`, which is the same
+        accessible name as the panel's own X button — so a screen-reader user
+        heard two identically named buttons, one of which was an invisible
+        full-screen backdrop, and neither `getByRole` nor `getByLabel` could
+        tell them apart without `.first()`. Duplicated names are worse than a
+        missing affordance here, because the real affordances already exist:
+        Escape dismisses, and the X is a visible, correctly named button. So the
+        scrim keeps its click target and leaves the tree, with `tabIndex={-1}`
+        so it cannot become a focus trap's first stop.
+      */}
       {codeOpen ? (
         <button
           type="button"
-          aria-label="Close the code panel"
-          className="fixed inset-0 z-30 bg-slate-950/60 xl:hidden"
+          tabIndex={-1}
+          aria-hidden="true"
+          className="fixed inset-0 z-30 bg-surface/60 xl:hidden"
           onClick={() => setCodeOpen(false)}
         />
       ) : null}

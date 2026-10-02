@@ -152,21 +152,35 @@ describe('counting sort', () => {
      * single shared reference turns the entire prefix-sum story into a row of
      * final values.
      */
+    /*
+     * One pass, not a pairwise scan. Asking "are these two frames the same
+     * array?" for all 48,212 pairs across these presets answers the question,
+     * but it answers it by calling `expect` 48,212 times — and the assertion
+     * overhead, not the comparison, is what pushed this past the 5s timeout.
+     * A reference is either seen for the first time or it is shared, so a
+     * first-seen index map decides the identical question in linear time and
+     * `expect` is only paid when there is something to report.
+     */
     for (const { presetId, result } of runEveryPreset(countingSortAlgo)) {
       const trace = result.trace as ArrayFrame[];
-      for (let i = 0; i < trace.length; i++) {
-        for (let j = i + 1; j < trace.length; j++) {
-          const a = trace[i] as ArrayFrame;
-          const b = trace[j] as ArrayFrame;
-          expect(a.values, `${presetId}: frames ${i} and ${j} share values`).not.toBe(b.values);
-          if (a.overlay && b.overlay) {
-            expect(
-              a.overlay.values,
-              `${presetId}: frames ${i} and ${j} share overlay.values`,
-            ).not.toBe(b.overlay.values);
-          }
+      const seenValues = new Map<ArrayFrame['values'], number>();
+      const seenOverlay = new Map<NonNullable<ArrayFrame['overlay']>['values'], number>();
+      const shared: string[] = [];
+
+      trace.forEach((frame, i) => {
+        const firstSeen = seenValues.get(frame.values);
+        if (firstSeen === undefined) seenValues.set(frame.values, i);
+        else shared.push(`${presetId}: frames ${firstSeen} and ${i} share values`);
+
+        const overlay = frame.overlay?.values;
+        if (overlay) {
+          const firstOverlay = seenOverlay.get(overlay);
+          if (firstOverlay === undefined) seenOverlay.set(overlay, i);
+          else shared.push(`${presetId}: frames ${firstOverlay} and ${i} share overlay.values`);
         }
-      }
+      });
+
+      expect(shared.sort(), `${shared.length} shared array reference(s)`).toEqual([]);
     }
   });
 

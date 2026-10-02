@@ -29,7 +29,7 @@ export function Viewport({
 }) {
   if (!frame) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-slate-500">
+      <div className="flex h-full items-center justify-center text-sm text-text-subtle">
         Press play to run the algorithm.
       </div>
     );

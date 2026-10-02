@@ -54,7 +54,7 @@ export interface InputSpec {
   fields: InputField[];
   /** How the field values become the input object. */
   build(values: Record<string, unknown>): AlgoInput;
-  /** Rough element count, used to warn about the DOM/canvas threshold. */
+  /** Rough element count, used to warn about a large input. */
   sizeOf(input: AlgoInput): number;
 }
 

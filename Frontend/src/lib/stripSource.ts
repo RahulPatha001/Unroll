@@ -116,3 +116,95 @@ export function stripCommentsAndStrings(source: string): string {
   void isIdentChar;
   return out;
 }
+
+/**
+ * Remove comments but **keep** string contents — the inverse of the above, for
+ * the other kind of scan.
+ *
+ * `stripCommentsAndStrings` is right for rules about *code* ("does `core/`
+ * import React?", "does anything call `Math.random()`?"), where a note that says
+ * "the window is empty" is prose and must not count as touching a browser
+ * global. It is exactly wrong for rules about *what the app says to people*.
+ *
+ * The case that forced this: the renderer is DOM, and that fact used to be
+ * contradicted in twenty-one algorithm `help:` strings, `docs/architecture.md`,
+ * and the `InputEditor` warning. A test that the promises cannot come back needs
+ * to read the strings — and those strings are string literals, so stripping
+ * them removes precisely the evidence. Hence the mirror image: comments go,
+ * strings stay, and a comment that *discusses* the absence of a canvas no longer
+ * reads as a promise of one.
+ *
+ * Comments are still detected correctly inside template-literal interpolations,
+ * because `${…}` is code. A `//` inside a plain string is left alone, which is
+ * the whole point.
+ */
+export function stripComments(source: string): string {
+  let out = '';
+  let i = 0;
+  const n = source.length;
+
+  while (i < n) {
+    const c = source[i] as string;
+    const next = source[i + 1];
+
+    if (c === '/' && next === '/') {
+      while (i < n && source[i] !== '\n') i++;
+      continue;
+    }
+
+    if (c === '/' && next === '*') {
+      i += 2;
+      while (i < n && !(source[i] === '*' && source[i + 1] === '/')) {
+        if (source[i] === '\n') out += '\n';
+        i++;
+      }
+      i += 2;
+      continue;
+    }
+
+    if (c === "'" || c === '"' || c === '`') {
+      const quote = c;
+      out += c;
+      i++;
+      while (i < n && source[i] !== quote) {
+        if (source[i] === '\\') {
+          out += source[i] ?? '';
+          out += source[i + 1] ?? '';
+          i += 2;
+          continue;
+        }
+        // Only `${…}` is code inside a template; strip comments within it.
+        if (quote === '`' && source[i] === '$' && source[i + 1] === '{') {
+          let depth = 1;
+          let expr = '';
+          i += 2;
+          while (i < n && depth > 0) {
+            const d = source[i];
+            if (d === '{') depth++;
+            else if (d === '}') {
+              depth--;
+              if (depth === 0) {
+                i++;
+                break;
+              }
+            }
+            expr += d;
+            i++;
+          }
+          out += `\${${stripComments(expr)}}`;
+          continue;
+        }
+        out += source[i];
+        i++;
+      }
+      out += quote;
+      i++;
+      continue;
+    }
+
+    out += c;
+    i++;
+  }
+
+  return out;
+}

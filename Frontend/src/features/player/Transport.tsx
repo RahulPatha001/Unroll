@@ -108,7 +108,7 @@ export function Transport() {
   );
 
   return (
-    <div className="flex flex-col gap-2.5 border-t border-slate-800/80 bg-slate-900/70 px-3.5 py-3 backdrop-blur-sm">
+    <div className="flex flex-col gap-2.5 border-t border-border/80 bg-surface-raised/70 px-3.5 py-3 backdrop-blur-sm">
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -136,8 +136,8 @@ export function Transport() {
           disabled={length === 0}
           className={cn(
             btn,
-            'size-10 rounded-lg bg-amber-400 text-slate-950 shadow-lg shadow-amber-500/25 transition-all hover:bg-amber-300 hover:shadow-amber-500/35',
-            'disabled:hover:bg-amber-400 disabled:hover:shadow-amber-500/25',
+            'size-10 rounded-lg bg-accent text-text-inverse shadow-lg shadow-accent-deep/25 transition-all hover:bg-accent-hover hover:shadow-accent-deep/35',
+            'disabled:hover:bg-accent disabled:hover:shadow-accent-deep/25',
           )}
           title="Play / pause (Space)"
           aria-label={isPlaying ? 'Pause' : 'Play'}
@@ -175,12 +175,12 @@ export function Transport() {
         </button>
 
         <div className="ml-auto flex items-center gap-2">
-          <label className="flex items-center gap-1.5 text-[10px] font-medium text-slate-500">
+          <label className="flex items-center gap-1.5 text-[10px] font-medium text-text-subtle">
             <input
               type="checkbox"
               checked={loop}
               onChange={(e) => setLoop(e.target.checked)}
-              className="size-3 accent-amber-400"
+              className="size-3 accent-accent"
             />
             loop
           </label>
@@ -194,14 +194,14 @@ export function Transport() {
           */}
           {reduced ? (
             <span
-              className="rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-0.5 text-[10px] font-medium text-slate-500"
+              className="rounded-lg border border-border bg-surface-raised px-2.5 py-0.5 text-[10px] font-medium text-text-subtle"
               title="Reduced motion is on: playback is fixed at one step per second. Change it in your OS accessibility settings."
             >
               1/s · reduced motion
             </span>
           ) : (
             <fieldset
-              className="flex overflow-hidden rounded-md border border-slate-700/80"
+              className="flex overflow-hidden rounded-md border border-border-strong/80"
               title="Playback speed"
             >
               <legend className="sr-only">Playback speed</legend>
@@ -219,10 +219,10 @@ export function Transport() {
                   key={s}
                   className={cn(
                     'cursor-pointer px-2 py-0.5 font-mono text-[10.5px] tabular-nums transition-colors select-none',
-                    'has-[:focus-visible]:outline-2 has-[:focus-visible]:-outline-offset-2 has-[:focus-visible]:outline-amber-400',
+                    'has-[:focus-visible]:outline-2 has-[:focus-visible]:-outline-offset-2 has-[:focus-visible]:outline-accent',
                     s === speed
-                      ? 'bg-amber-400 font-bold text-slate-950 shadow-sm shadow-amber-500/20'
-                      : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200',
+                      ? 'bg-accent font-bold text-text-inverse shadow-sm shadow-accent-deep/20'
+                      : 'bg-surface-raised text-text-muted hover:bg-surface-inset hover:text-text',
                   )}
                 >
                   <input
@@ -241,7 +241,7 @@ export function Transport() {
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="w-14 shrink-0 text-right font-mono text-[10px] font-medium text-slate-500 tabular-nums">
+        <span className="w-14 shrink-0 text-right font-mono text-[10px] font-medium text-text-subtle tabular-nums">
           {length === 0 ? '—' : `${index + 1}/${length}`}
         </span>
         <div className="relative min-w-0 flex-1">
@@ -251,9 +251,9 @@ export function Transport() {
             line and "how far through am I" has to be read off the thumb's
             position by eye.
           */}
-          <div className="pointer-events-none absolute top-1/2 h-2 w-full -translate-y-1/2 overflow-hidden rounded-full bg-slate-800/80">
+          <div className="pointer-events-none absolute top-1/2 h-2 w-full -translate-y-1/2 overflow-hidden rounded-full bg-surface-inset/80">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-amber-500 via-amber-400 to-amber-300 shadow-sm shadow-amber-500/30"
+              className="h-full rounded-full bg-gradient-to-r from-accent-deep via-accent to-accent-hover shadow-sm shadow-accent-deep/30"
               style={{
                 width: `${length > 1 ? (index / (length - 1)) * 100 : 0}%`,
               }}
@@ -271,7 +271,7 @@ export function Transport() {
             aria-valuetext={`Step ${index + 1} of ${length}`}
           />
         </div>
-        <span className="w-14 shrink-0 font-mono text-[10px] font-medium text-slate-500 tabular-nums">
+        <span className="w-14 shrink-0 font-mono text-[10px] font-medium text-text-subtle tabular-nums">
           {length === 0 ? '—' : `${Math.round((index / Math.max(1, length - 1)) * 100)}%`}
         </span>
       </div>
@@ -293,6 +293,6 @@ function usePrefersReducedMotion(): boolean {
 }
 
 const btn = cn(
-  'flex size-8 items-center justify-center rounded-lg text-slate-300 transition-colors',
-  'hover:bg-slate-700/80 hover:text-white disabled:pointer-events-none disabled:opacity-30',
+  'flex size-8 items-center justify-center rounded-lg text-text-muted transition-colors',
+  'hover:bg-surface-overlay/80 hover:text-white disabled:pointer-events-none disabled:opacity-30',
 );

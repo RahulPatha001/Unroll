@@ -61,7 +61,7 @@ export function PointerChip({
     <span
       className={[
         'pointer-events-none absolute left-1/2 -translate-x-1/2 rounded-sm px-1',
-        'bg-slate-950/95 font-bold whitespace-nowrap ring-1 ring-current',
+        'bg-surface/95 font-bold whitespace-nowrap ring-1 ring-current',
         compact ? 'text-[8px] leading-[13px]' : 'text-[10px] leading-4',
         hue,
         placement.offset > 0 ? 'opacity-80' : '',

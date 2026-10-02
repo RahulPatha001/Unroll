@@ -63,7 +63,7 @@ export function Em({ text }: { text: string }): ReactNode {
         occurrences.set(part, n + 1);
         const key = `${n}·${part}`;
         return i % 2 === 1 ? (
-          <strong key={key} className="font-semibold text-slate-50">
+          <strong key={key} className="font-semibold text-text-strong">
             {part}
           </strong>
         ) : (
