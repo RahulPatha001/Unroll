@@ -1,4 +1,5 @@
-import { createElement, memo, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { createElement, Fragment, memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { Lang } from '../../core/code/anchors.ts';
 import { LANG_META } from '../../core/code/anchors.ts';
 
@@ -163,6 +164,7 @@ export const HighlightedLines = memo(function HighlightedLines({
   startLine,
   endLine,
   onLineClick,
+  inlineNote,
   className,
 }: {
   lang: Lang;
@@ -179,6 +181,20 @@ export const HighlightedLines = memo(function HighlightedLines({
    * clicking a line is the shortcut for "show me that step" without scrubbing.
    */
   onLineClick?: (line: number) => void;
+  /**
+   * Rendered in the flow, immediately after the last line of the active range.
+   *
+   * This exists instead of a panel pinned to the bottom of this column because an
+   * explanation sitting *under* the code is read as part of the code, while one
+   * sitting below the listing is read as a caption about the listing. The product's
+   * claim is that a sentence and a line are the same moment, so the sentence
+   * belongs next to the line.
+   *
+   * In the flow rather than `absolute`, deliberately: an absolutely-positioned note
+   * would not travel with its line as the student scrolls, and a note that detaches
+   * from the line it describes is worse than no note at all.
+   */
+  inlineNote?: ReactNode;
   className?: string;
 }) {
   const { html, status } = useHighlighted(lang, source);
@@ -193,6 +209,30 @@ export const HighlightedLines = memo(function HighlightedLines({
     const el = containerRef.current?.querySelector<HTMLElement>(`[data-line="${startLine}"]`);
     el?.scrollIntoView({ block: 'nearest' });
   }, [startLine]);
+
+  /*
+    And then the note, which sits directly *below* that line.
+    *
+    `nearest` puts the active line flush against whichever edge it was already
+    nearest, which for a step near the top of the listing means the line lands at
+    the bottom of the scroll box — with its explanation, which is the thing being
+    read, just off-screen below it. An explanation you have to scroll to find is not
+    attached to anything.
+    *
+    On a `requestAnimationFrame` so it runs after the line has been scrolled and the
+    note's own height is known; scrolling to a box whose height has not been laid out
+    yet lands short by exactly the note's height. Both scrolls are `nearest`, so the
+    second only moves the view if the note is actually clipped — the common case is
+    no movement at all.
+    */
+  useEffect(() => {
+    if (startLine === null || !inlineNote) return;
+    const id = requestAnimationFrame(() => {
+      const note = containerRef.current?.querySelector<HTMLElement>('[data-inline-note]');
+      note?.scrollIntoView({ block: 'nearest' });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [startLine, inlineNote]);
 
   const plain = useMemo(() => source.replace(/\r\n/g, '\n').split('\n'), [source]);
   const rows = lines ?? plain;
@@ -233,52 +273,81 @@ export const HighlightedLines = memo(function HighlightedLines({
         rows.map((content, i) => {
           const n = i + 1;
           const active = startLine !== null && n >= startLine && n <= endLine;
+          const showNote = n === endLine && inlineNote;
+          /*
+            The fragment, and it is load-bearing.
+
+            The note was first rendered as a child of the row `div` — which is a
+            `flex` container — so it became a third flex item and sat *beside* the
+            code rather than below it. Measured before the fix: the row's code ended
+            around x=1215 and the note occupied `1215,240 1312x49`, pushed to the
+            right of the text it was supposed to follow.
+
+            As a sibling of the row it is a block box and stacks underneath, which
+            is what "attached to this line" means.
+          */
           return createElement(
-            'div',
-            {
-              key: n,
-              'data-line': n,
-              'aria-current': active ? 'true' : undefined,
-              onClick: onLineClick ? () => onLineClick(n) : undefined,
-              title: onLineClick ? 'Jump to the step that runs this line' : undefined,
-              className: [
-                'flex gap-3 border-l-2 pr-4 transition-colors duration-150',
-                // Pointer feedback only where the click actually does something.
-                onLineClick ? 'cursor-pointer' : '',
-                active
-                  ? // `line-flash` re-runs because the row is keyed by line and
-                    // the animation is applied to a wrapper that mounts afresh on
-                    // each step. A plain background colour reads as "selected";
-                    // a brief flare reads as "this one, just now", which is the
-                    // thing the student is actually watching for.
-                    'line-flash border-accent bg-accent/10'
-                  : 'border-transparent hover:bg-white/[0.03]',
-              ].join(' '),
-            },
+            Fragment,
+            { key: n },
             createElement(
-              'span',
+              'div',
               {
+                'data-line': n,
+                'aria-current': active ? 'true' : undefined,
+                onClick: onLineClick ? () => onLineClick(n) : undefined,
+                title: onLineClick ? 'Jump to the step that runs this line' : undefined,
                 className: [
-                  'w-9 shrink-0 select-none pr-2 text-right text-[10.5px] tabular-nums',
-                  active ? 'text-accent-hover' : 'text-text-faint',
+                  'flex gap-3 border-l-2 pr-4 transition-colors duration-150',
+                  // Pointer feedback only where the click actually does something.
+                  onLineClick ? 'cursor-pointer' : '',
+                  active
+                    ? // Both animations re-run because the row is keyed by line and
+                      // the animation is applied to a wrapper that mounts afresh on
+                      // each step. A plain background colour reads as "selected";
+                      // a brief flare reads as "this one, just now", which is the
+                      // thing the student is actually watching for.
+                      //
+                      // `line-locate` is the accent bar scaling in on the same
+                      // `--step-beat` as the note's `note-enter` and the narration
+                      // card's accent thread, so all three arrive together rather
+                      // than 380ms apart. Together that is the one thing on this page
+                      // which is not decoration: the product's claim, made as a
+                      // timing relationship the eye can verify.
+                      'line-flash line-locate border-accent bg-accent/10'
+                    : 'border-transparent hover:bg-white/[0.03]',
                 ].join(' '),
               },
-              String(n),
+              createElement(
+                'span',
+                {
+                  className: [
+                    'w-9 shrink-0 select-none pr-2 text-right text-[10.5px] tabular-nums',
+                    active ? 'text-accent-hover' : 'text-text-faint',
+                  ].join(' '),
+                },
+                String(n),
+              ),
+              createElement('span', {
+                className: 'min-w-0 flex-1 whitespace-pre',
+                // Shiki's own escaped token spans, from our bundled grammars
+                // applied to our own source strings. No user input reaches this
+                // path, and rendering the tokens as React elements would mean
+                // re-implementing TextMate's nesting, which is the entire value
+                // Shiki provides here.
+                //
+                // The suppression has to be one line: Biome matches the *last*
+                // comment before the diagnostic, so a multi-line explanation after
+                // the keyword silently stops being a suppression.
+                // biome-ignore lint/security/noDangerouslySetInnerHtml: Shiki token spans from our own grammars
+                dangerouslySetInnerHTML: { __html: content },
+              }),
             ),
-            createElement('span', {
-              className: 'min-w-0 flex-1 whitespace-pre',
-              // Shiki's own escaped token spans, from our bundled grammars
-              // applied to our own source strings. No user input reaches this
-              // path, and rendering the tokens as React elements would mean
-              // re-implementing TextMate's nesting, which is the entire value
-              // Shiki provides here.
-              //
-              // The suppression has to be one line: Biome matches the *last*
-              // comment before the diagnostic, so a multi-line explanation after
-              // the keyword silently stops being a suppression.
-              // biome-ignore lint/security/noDangerouslySetInnerHtml: Shiki token spans from our own grammars
-              dangerouslySetInnerHTML: { __html: content },
-            }),
+            /*
+              The note, stacked under the last line of the active range.
+            */
+            showNote
+              ? createElement('div', { key: 'note', 'data-inline-note': '' }, inlineNote)
+              : null,
           );
         }),
       ),

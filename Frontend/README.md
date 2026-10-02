@@ -22,14 +22,47 @@ npm run dev
 ```
 
 **66 algorithms across 14 families**, each with four language listings, each frame
-naming the step it came from. 571 unit and contract tests, 71 four-language parity
-tests, 26 end-to-end tests, 87.1 kB gzipped on first load — and the algorithm count
-is machine-checked, because every one of those 264 listings is executed and diffed
-against the animation's own answer rather than merely type-checked.
+naming the step it came from. 653 unit and contract tests, 71 four-language parity
+tests, 47 end-to-end tests, 78 visual baselines, 195.4 kB gzipped on first load — and
+the algorithm count is machine-checked, because every one of those 264 listings is
+executed and diffed against the animation's own answer rather than merely
+type-checked.
 
 The shell is built so nothing moves that the algorithm did not move: the step
 narration is a fixed-height card, because step lengths vary enormously and a
 content-sized one made the viewport twitch on every frame.
+
+---
+
+## The pages
+
+| Route | |
+| --- | --- |
+| `/` | browse — pick an algorithm out of all 66 |
+| `/?algo=<id>` | the visualiser: set up the input and watch it run |
+| `/learn` | guides |
+| `/learn/<slug>` | one guide, with the visualisation embedded in it |
+| `/compare` | two algorithms, one input, one transport |
+| anything else | 404, with the way out on it |
+
+The split is deliberate: **`/` has no `algo` key in it is the browse page, and any
+`?algo=` is the visualiser.** A bare `/` used to load Bubble Sort, because the URL
+schema defaults `algo` — which meant there was no first-run experience at all. You
+arrived inside a running algorithm with no explanation and 66 alternatives hidden
+behind a hamburger.
+
+The visualiser keeps `?algo=` rather than moving to `/algo/<id>`, and that is a
+load-bearing choice rather than a leftover. `useUrlSync` deliberately separates
+"the algorithm changed — push a history entry" from "the frame moved — replace",
+and moving the id into the path would give that logic two sources of truth for one
+field. The failure mode is not a broken link; it is a Back button that silently
+stops working.
+
+**The guides embed the visualisation.** A paragraph that says "watch the invariant
+break" next to a stepper you can drag is the thing a static illustration of bubble
+sort cannot be. `core/learn/` holds the prose as plain data — no React, so the
+articles are testable in Node and every algorithm and preset an article references
+is checked before it ships — and `features/learn/` renders it.
 
 ---
 
@@ -108,6 +141,7 @@ The four-language listings still have to agree on the answer, which is what make
 | click a code line | jump to the step that runs it |
 | `B` | toggle the algorithm list |
 | `C` | show / hide the code panel |
+| `⌘K` / `Ctrl K` | search everything (algorithms *and* guides) |
 | `Esc` | close whatever is open |
 | `?` | shortcuts |
 
@@ -149,10 +183,19 @@ src/core/          pure: no React, no DOM, enforced by Biome
   code/            anchor parsing — the seam to the code panel
   algorithms/      one file per algorithm + the contract test
   input/           seeded RNG, input shapes, generators, custom-input parsing
+  learn/           guide articles as plain data (no React, so Node-testable)
+src/app/           routing and the pages
+  routes.tsx       the route table — one place to read what is where
+  Browse.tsx       the selection page
+  FamilyRail.tsx   14 families with counts and blurbs
+  AlgoRow.tsx      one algorithm in the list
+  FamilyGlyph.tsx  a shape mark per frame kind
+  library.ts       favourites + recently viewed, persisted
 src/features/      everything that knows about React
-  viewport/        one component per frame kind
+  viewport/        one component per frame kind, each lazily loaded
   code-panel/      the anchor ↔ line highlight
   player/          store, transport, narration, keyboard, URL sync
+  learn/           the article renderer and the embedded stepper
   input/           the custom-input editor
 tools/verify/      the 4-language parity harness and its per-language drivers
 docs/              CONTRIBUTING.md (how to add an algorithm), architecture.md
@@ -161,17 +204,29 @@ docs/              CONTRIBUTING.md (how to add an algorithm), architecture.md
 `docs/CONTRIBUTING.md` is the guide for adding one; `bubble-sort.ts` is the
 reference implementation to copy.
 
-Two boundaries are enforced by *tests* rather than by lint, because lint failed
+Boundaries are enforced by *tests* rather than by lint, because lint failed
 silently once already and nothing noticed for weeks:
 
-- `src/core/boundary.test.ts` — `core/` imports no Node, and nothing in
-  `src/features/` imports `registry.ts`, which would put all 66 algorithms in the
-  initial bundle.
+- `src/core/boundary.test.ts` — `core/` imports no Node; nothing outside `core/`
+  imports `registry.ts` (which would put all 66 algorithms in the initial bundle)
+  or an algorithm module by path (which defeats the per-algorithm split);
+  `core/learn/` stays React-free so the articles remain Node-testable.
 - `src/core/algorithms/contract.test.ts` — 14 checks over every algorithm,
   including that no algorithm module sits on disk unregistered.
 - `src/core/input/fields.test.ts` — the custom-input round trip: seed the editor
   from a real preset, parse it back, and require the same input out, for every
   algorithm and every preset.
+- `src/core/learn/learn.test.ts` — every article's `algoId`, every `stepper`
+  preset and every table's shape.
+
+### The budget tool measures the graph, not the filenames
+
+`tools/budget.mjs` walks the static import graph from the entry chunk and sums
+everything reachable without a dynamic `import()`. It used to classify by filename
+pattern, which never matched rolldown's hashed output — so **React's 78 kB was
+never counted** and the gate reported 106 kB while the real first load was over
+200. It now fails loudly if the vendor chunk is missing from the initial set,
+because that is the symptom of the measurement breaking again.
 
 ---
 
@@ -186,6 +241,26 @@ unlimited bandwidth and no non-commercial clause (unlike Vercel Hobby), and its
 Nothing in the browser bundle needs a toolchain: the verifier is a dev-time Node
 tool, and `src/core/` is denied `node:*` imports so it cannot be.
 
+### The SPA rewrite, on both hosts
+
+The app has real paths now, so a cold load of `/learn/binary-search` is a **server**
+request for a file that does not exist. Two hosts, two mechanisms, and both are
+required — in-app navigation works either way, which is exactly why a missing one
+goes unnoticed until someone shares the link:
+
+| Host | Where | What |
+| --- | --- | --- |
+| Cloudflare Pages | `public/_redirects` | `/*  /index.html  200` |
+| Vercel | `vercel.json` | `rewrites`, **not** `routes` |
+
+`rewrites` rather than `routes` on Vercel because rewrites run *after* the
+filesystem check, so `/assets/<name>.js` still resolves to the real file; `routes`
+would shadow every hashed asset and serve an HTML document where the browser
+expects JavaScript.
+
+`tests/e2e/pages.spec.ts` navigates directly to each path against a production
+build, so a missing rewrite fails CI rather than production.
+
 ---
 
 ## Accessibility
@@ -194,6 +269,20 @@ Full keyboard control, an `aria-live` region that reads the current step aloud,
 `prefers-reduced-motion` honoured as a hard rule, visible focus rings, and
 meaning never carried by colour alone — every highlight group is also named in the
 legend and every cursor is a labelled marker.
+
+The pages get the same treatment rather than a lesser one:
+
+- **⌘K search** is a real `combobox` with `aria-activedescendant`, so arrowing
+  through results never moves focus out of the field and never loses what you typed.
+- **Staggered entrances** are CSS `animation-delay` derived from a `--i` custom
+  property, not `setTimeout`. That matters for reduced motion specifically: the
+  global rule collapses animation *duration*, so a JS timer would keep a user who
+  asked for less motion waiting half a second before content they could already
+  have read. `animation-delay` is zeroed in the same block, so a staggered card
+  resolves immediately instead.
+- **Motion inside `/` stays the algorithm's.** Page transitions and hover lift live
+  outside the visualiser; nothing new moves a box inside it, because a reflow there
+  is indistinguishable from the algorithm having changed something.
 
 ---
 

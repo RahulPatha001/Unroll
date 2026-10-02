@@ -173,6 +173,21 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+    /*
+     * `animation-delay` too, and this is new for a specific reason.
+
+     * The existing rule collapses every animation to 0.01ms, which is enough for
+     * an animation with no delay. But the staggered card grid on the browse page
+     * sets `animation-delay: calc(var(--i) * 26ms)` — up to ~700ms for the last
+     * card in a long list. Duration was neutralised, delay was not, so under
+     * reduced motion the grid *waited* half a second and then appeared all at
+     * once. That is the worst possible outcome: a user who asked for less motion
+     * got a pause before content they could already have read.
+
+     * Zeroing the delay alongside the duration means a staggered item resolves
+     * immediately, in its final state, exactly as an un-animated element would.
+     */
+    animation-delay: 0.01ms !important;
   }
 }
 
@@ -265,15 +280,41 @@ input[type="range"]::-moz-range-thumb:hover {
 /** The active code line picking up its highlight. */
 @keyframes line-flash {
   from {
-    background-color: rgb(251 191 36 / 0.28);
+    background-color: rgb(251 191 36 / 0.34);
   }
   to {
     background-color: rgb(251 191 36 / 0.1);
   }
 }
 
+/*
+ * `--step-beat`: the duration and easing shared by everything that reacts to a
+ * step change.
+ *
+ * The thesis of this app is that the animation and the code are the same program,
+ * and until now the UI asserted that only structurally — a highlighted line, a
+ * sentence about it, and a data structure that moved. Three *separate* animations
+ * with three different durations (220ms for the note, 600ms for the line flash,
+ * and the data's own) meant that on every single step the three responses
+ * arrived slightly apart and the eye read them as three unrelated updates that
+ * happened to be nearby.
+ *
+ * One token, one duration, one curve: the sentence, the code line and the accent
+ * thread between them now start together and finish together, so a step reads as
+ * an *event* rather than as three facts. That is the whole product claim expressed
+ * as a timing relationship, which is the only form of it a user can actually
+ * perceive.
+ *
+ * `--step-ease` is the same cubic-bezier as the rest of this file's motion, so the
+ * beat is not a new curve but the existing one, applied consistently.
+ */
+@theme {
+  --step-beat: 260ms;
+  --step-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 @utility note-enter {
-  animation: note-enter 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: note-enter var(--step-beat) var(--step-ease) both;
 }
 
 @utility pop-in {
@@ -281,7 +322,67 @@ input[type="range"]::-moz-range-thumb:hover {
 }
 
 @utility line-flash {
-  animation: line-flash 600ms ease-out both;
+  /*
+    Retimed from 600ms to `--step-beat`, and it now peaks brighter before settling
+    to the resting highlight. The old 600ms was long enough that a student stepping
+    quickly never saw it reach the end, so it read as a permanent tint rather than a
+    flash — and it was still fading while the next step's flash began, which is what
+    made consecutive steps feel smeared together.
+  */
+  animation: line-flash var(--step-beat) var(--step-ease) both;
+}
+
+/**
+ * The accent thread: a 2px bar on the left of the active code line, scaling in.
+ *
+ * The line already carries a persistent `border-accent` while it is the active
+ * range, which says *which* line. This says *that it just became* the active line,
+ * and it is the piece that actually pulls the eye across from the narration to the
+ * listing — the two places the product claim connects.
+ *
+ * Scale rather than a width or colour change because the bar's width is fixed by
+ * the gutter: animating width would reflow the line's text by two pixels, and
+ * anything that reflows text inside the code panel is visible as a jitter while
+ * stepping.
+ */
+@keyframes line-locate {
+  from {
+    transform: scaleY(0.2);
+    opacity: 0.4;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@utility line-locate {
+  animation: line-locate var(--step-beat) var(--step-ease) both;
+}
+
+/**
+ * The cross-fade for a whole-stage swap: a new algorithm, or a new language.
+ *
+ * Both currently cut. Both are the same class of event from the reader's side —
+ * "the thing I am looking at changed, and it is still the same step" — and both
+ * benefit from the change being *seen* rather than inferred. On a language change
+ * in particular, a fade is what makes "the same step, four languages" true to the
+ * eye instead of being a caption that happens to be true.
+ *
+ * Opacity only. Nothing here moves, because the stage is the one region of this app
+ * where a reflow is indistinguishable from the algorithm having changed something.
+ */
+@keyframes stage-swap {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@utility stage-swap {
+  animation: stage-swap var(--step-beat) var(--step-ease) both;
 }
 
 /*
@@ -331,4 +432,163 @@ input[type="range"]::-moz-range-thumb:hover {
     radial-gradient(60rem 42rem at 102% -8%, rgb(56 189 248 / 0.07), transparent 50%),
     radial-gradient(50rem 40rem at 50% 110%, rgb(99 102 241 / 0.05), transparent 55%),
     linear-gradient(to bottom, rgb(15 23 42 / 0.45), transparent 35rem);
+}
+
+/* ------------------------------------------------------------------ *
+ * Motion, part two: the pages outside the player
+ *
+ * The three keyframes above are the *player's* vocabulary, and they are
+ * deliberately austere — opacity and a few pixels, nothing that moves a layout
+ * box, because a reflow in the visualisation is indistinguishable from the
+ * algorithm having changed. That constraint is real and it still holds.
+ *
+ * It does not extend to the pages that are not the player. Nothing about a card
+ * grid reflowing is a lie about an algorithm, so those pages get a proper motion
+ * language: entrances, a stagger, and a hover that lifts.
+ *
+ * The dividing line, stated so it survives a later edit: **inside `/algo` the only
+ * motion that belongs is the algorithm's own; outside it, motion is decoration and
+ * is allowed to be pretty.** `ReducedMotion` and the media query above apply to
+ * both halves equally, so none of this is ever shown to someone who opted out.
+ * ------------------------------------------------------------------ */
+
+/** A section arriving as the page settles. The workhorse. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/** A slower, softer sibling of `rise-in`, for the hero. */
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/** Anything that appears in place rather than travelling: badges, chips, toasts. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/** A card or panel being pressed. Paired with `active:` states. */
+@keyframes press-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/**
+ * The accent glow that breathes behind the hero's primary action.
+ *
+ * Deliberately opacity-only and slow. A pulsing *scale* would be the kind of
+ * motion that draws the eye away from the content it is attached to, and a
+ * pulsing background behind a button is a well-worn way to make an interface feel
+ * like a landing page rather than a tool. 4s, `ease-in-out`, alternate.
+ */
+@keyframes glow-breathe {
+  from {
+    opacity: 0.35;
+  }
+  to {
+    opacity: 0.7;
+  }
+}
+
+@utility rise-in {
+  animation: rise-in 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility fade-rise {
+  animation: fade-rise 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility fade-in {
+  animation: fade-in 260ms ease-out both;
+}
+
+@utility press-in {
+  animation: press-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility glow-breathe {
+  animation: glow-breathe 4s ease-in-out infinite alternate;
+}
+
+/**
+ * Staggered entrance for a grid of cards.
+ *
+ * The delay is a custom property so the *markup* decides the order: each child
+ * sets `style={{ '--i': index }}` and gets `index * 26ms`. Doing it in CSS from
+ * `nth-child` would need a selector per position and a floor on how long the
+ * last card waits; doing it in JS with `setTimeout` would keep animating after
+ * unmount and would ignore `prefers-reduced-motion` entirely, since that is a
+ * CSS-side preference the `matchMedia` in `reducedMotion.ts` has no reason to
+ * know about.
+ *
+ * The cap matters more than it looks. At 26ms, card 40 would wait over a second,
+ * which reads as the page being *slow* rather than as choreography. `--i` is
+ * clamped by the caller, and the comment here is the reminder of why.
+ */
+@utility stagger {
+  animation: rise-in 340ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 26ms);
+}
+
+/**
+ * The backdrop for the scrolling pages.
+ *
+ * Separate from `app-backdrop` rather than a variant of it, because the two
+ * surfaces want opposite treatments and the difference is worth naming. The
+ * player's backdrop is painted behind three fixed panels that never move, so a
+ * strong wash reads as depth. A long article scrolls *through* its backdrop, and
+ * a wash strong enough to read on a stationary screen turns into visible banding
+ * halfway down a page. So this one is quieter, and the grid is finer — the page
+ * needs a texture to sit on, not a horizon.
+ */
+@utility page-backdrop {
+  background-color: #020617;
+  background-image:
+    radial-gradient(60rem 40rem at 50% -8%, rgb(251 191 36 / 0.06), transparent 60%),
+    radial-gradient(50rem 36rem at 100% 0%, rgb(56 189 248 / 0.05), transparent 55%),
+    linear-gradient(to bottom, rgb(15 23 42 / 0.35), transparent 30rem);
+}
+
+/**
+ * The reading measure for prose.
+ *
+ * `65ch` is not a typographic preference, it is an accessibility one: a line of
+ * text longer than roughly 75 characters forces the eye to sweep back to the
+ * start of the next line and lose its place, which is measurably worse for
+ * readers with dyslexia and for anyone reading on a phone. Every article body
+ * and every long-form paragraph in the app is capped at this.
+ */
+@utility measure {
+  max-width: 65ch;
+}
+
+/** A hairline rule that fades out, for separating a hero from what follows. */
+@utility rule-fade {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--color-border-strong), transparent);
 }

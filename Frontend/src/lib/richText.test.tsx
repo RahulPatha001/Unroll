@@ -56,3 +56,78 @@ describe('inline emphasis', () => {
     expect(html('**whole string**')).not.toContain('**');
   });
 });
+
+describe('inline code', () => {
+  it('renders a code run', () => {
+    const out = html('run `n-1` comparisons');
+    expect(out).toContain('<code');
+    expect(out).toContain('>n-1</code>');
+    // The backticks must be *consumed*, not displayed. That was the actual bug:
+    // every one of the seven guides wrote `n-1` and the reader saw the backticks,
+    // which reads as a broken build rather than as code.
+    expect(out).not.toContain('`');
+  });
+
+  it('renders several code runs', () => {
+    const out = html('`a` then `b`');
+    expect(out.match(/<code/g)).toHaveLength(2);
+    expect(out).toContain('>a</code>');
+    expect(out).toContain('>b</code>');
+  });
+
+  it('handles code and emphasis in the same sentence', () => {
+    const out = html('the **worst case** is `O(n²)`, not `O(n log n)`');
+    expect(out.match(/<code/g)).toHaveLength(2);
+    expect(out.match(/<strong/g)).toHaveLength(1);
+    expect(out).toContain('>O(n²)</code>');
+    expect(out).toContain('>worst case</strong>');
+    expect(out).not.toContain('`');
+    expect(out).not.toContain('**');
+  });
+
+  it('escapes the text rather than interpreting it as markup', () => {
+    expect(html('`<img src=x onerror=alert(1)>`')).toContain('&lt;img');
+    expect(html('`<img src=x onerror=alert(1)>`')).not.toContain('<img');
+  });
+
+  it('leaves an unpaired backtick visible, and does not half-render the rest', () => {
+    // The all-or-nothing rule. A string with valid `**` but a dangling backtick is
+    // emitted verbatim — no bold, no code. A sentence with one marker pair applied
+    // and one left literal looks like a rendering bug; a sentence with its markers
+    // intact looks like a typo, which is what it is.
+    const out = html('**bold** and a ` dangling backtick');
+    expect(out).toBe('**bold** and a ` dangling backtick');
+    expect(out).not.toContain('<strong');
+    expect(out).not.toContain('<code');
+  });
+
+  it('leaves an unpaired emphasis marker alone even when the code is valid', () => {
+    // The symmetric case, and the reason validation happens before tokenizing
+    // rather than during it.
+    const out = html('`code` and a ** dangling bold');
+    expect(out).toBe('`code` and a ** dangling bold');
+    expect(out).not.toContain('<code');
+    expect(out).not.toContain('<strong');
+  });
+
+  it('does not count a backtick inside a code span as a second pair', () => {
+    // An odd/even count on the raw string is the only thing standing between a
+    // typo and a mangled paragraph, so the counting has to be on markers, not on
+    // quotes: `` `a` and `b` `` is four backticks and therefore valid.
+    const out = html('`a` and `b`');
+    expect(out).not.toContain('`');
+    expect(out.match(/<code/g)).toHaveLength(2);
+  });
+
+  it('keeps repeated code runs distinct', () => {
+    // The same duplicate-key trap as `**`, for the same reason: `say `x` then `x``
+    // produces three identical code runs, and a content-only key would collide —
+    // React drops one and a word disappears.
+    const out = html('say `x` then `x` then `x`');
+    expect(out.match(/<code/g)).toHaveLength(3);
+    // Counted from the element *text*, not from the whole markup: `px-1` and
+    // `rounded-[3px]` contain an "x", so a naive `/x/g` over the HTML counts the
+    // class names too and passes for the wrong reason.
+    expect(out.match(/>([^<]*)</g)?.filter((s) => s === '>x<')).toHaveLength(3);
+  });
+});

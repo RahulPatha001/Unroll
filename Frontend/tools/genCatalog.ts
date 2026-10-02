@@ -146,10 +146,31 @@ const entries: CatalogEntry[] = [...ALL_ALGORITHMS]
       summary: a.summary,
       viewport: a.viewport,
       level: a.level,
+      complexity: a.complexity,
       tags: [...new Set([...(a.traits.tags ?? []), ...(extra.tags ?? [])])],
       ...(extra.aka ? { aka: extra.aka } : {}),
     };
   });
+
+/**
+ * Serialise a `Complexity`.
+ *
+ * Written out field by field rather than `JSON.stringify`ed, because the output
+ * has to be valid TypeScript source and this is a file a human reviews in a diff.
+ * `undefined` fields are dropped so an entry with no `best` case does not emit
+ * `best: undefined`, which would type-check but read as an explicit statement that
+ * there *is* no best case — which is a different claim.
+ */
+function complexitySrc(c: CatalogEntry['complexity']): string {
+  const parts = [
+    c.best !== undefined ? `best: ${q(c.best)}` : null,
+    `average: ${q(c.average)}`,
+    `worst: ${q(c.worst)}`,
+    `space: ${q(c.space)}`,
+    c.note !== undefined ? `note: ${q(c.note)}` : null,
+  ].filter((x): x is string => x !== null);
+  return `{ ${parts.join(', ')} }`;
+}
 
 const body = entries
   .map(
@@ -160,6 +181,7 @@ const body = entries
     summary: ${q(e.summary)},
     viewport: ${q(e.viewport)},
     level: ${q(e.level)},
+    complexity: ${complexitySrc(e.complexity)},
     tags: [${e.tags.map(q).join(', ')}],${e.aka ? `\n    aka: [${e.aka.map(q).join(', ')}],` : ''}
   },`,
   )
@@ -214,7 +236,22 @@ export function searchCatalog(query: string): CatalogEntry[] {
   if (!q) return CATALOG;
   const terms = q.split(/\\s+/);
   return CATALOG.filter((e) => {
-    const haystack = [e.title, e.summary, ...e.tags, ...(e.aka ?? []), e.category]
+    // The complexity numbers are in the haystack so that searching a cost finds
+    // the algorithms that have it — "nlogn" and "linear" are things people
+    // search for, and they were only reachable through a handful of hand-written
+    // \`aka\` entries until now.
+    const haystack = [
+      e.title,
+      e.summary,
+      e.complexity.best,
+      e.complexity.average,
+      e.complexity.worst,
+      e.complexity.space,
+      ...e.tags,
+      ...(e.aka ?? []),
+      e.category,
+    ]
+      .filter(Boolean)
       .join(' ')
       .toLowerCase();
     return terms.every((t) => haystack.includes(t));

@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 
 /**
@@ -98,6 +98,44 @@ export async function settle(
 
   // Inter, if it is being fetched at all.
   await page.evaluate(() => document.fonts.ready);
+}
+
+/**
+ * Wait for an embedded visualisation to have drawn something.
+ *
+ * The pages in `pages.spec.ts` embed steppers, and a stepper's chrome — the frame,
+ * the caption, the transport buttons — is all present *before* its algorithm chunk
+ * has loaded and its trace has been materialised. So asserting the chrome exists
+ * photographs a "Loading the trace…" placeholder and calls it a baseline, which is
+ * the exact failure the suite exists to catch being baked in as the new normal.
+ *
+ * The wait is on the two states that mean "there is a picture here": a rendered
+ * cell in the visualisation, or a resolved step readout (`3/57`), which only exists
+ * once the trace length is known. Either is sufficient; both together mean neither
+ * raced.
+ *
+ * Bounded by `expect.poll` rather than a bare `waitForTimeout`, so a stepper that
+ * never loads fails the test with a useful message instead of a slow photograph.
+ */
+export async function settlePage(scope: Locator): Promise<void> {
+  const drewSomething = scope.locator('[data-cell], [data-node], rect, circle, path, text').first();
+  const readout = scope.locator('span.font-mono').first();
+
+  await expect
+    .poll(
+      async () => {
+        if (await scope.locator('text=Loading the trace…').count()) return 'loading';
+        if ((await drewSomething.count()) > 0) return 'drew';
+        if (await readout.count()) {
+          const text = await readout.innerText();
+          // `1/57` — a real step count, not the `—` that means no trace.
+          if (/\d+\/\d+/.test(text)) return 'drew';
+        }
+        return 'pending';
+      },
+      { timeout: 20_000, message: 'the embedded visualisation never resolved a trace' },
+    )
+    .not.toBe('pending');
 }
 
 /**

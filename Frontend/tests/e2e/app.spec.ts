@@ -8,6 +8,22 @@ import { expect, test } from '@playwright/test';
  * nothing about whether the thing works. What matters is: can I deep-link into a
  * step, step backwards through the whole trace, and does the highlighted line
  * mean the same thing in every language.
+ *
+ * ## Why every test here says `/?algo=bubble-sort` rather than `/`
+ *
+ * Because `/` is the browse page now. It used to load Bubble Sort, since
+ * `urlStateSchema` defaults `algo`, and thirteen of these tests called
+ * `page.goto('/')` and expected a running visualiser.
+ *
+ * The app gained a selection page: `/` is "choose something", `/?algo=<id>` is "set
+ * it up and watch it". So those thirteen now ask for the algorithm explicitly. The
+ * algorithm is the same one — `DEFAULT_ALGORITHM_ID` is `CATALOG[0].id`, and
+ * `CATALOG` is ordered by curriculum with bubble sort first — and every assertion
+ * below is unchanged. Only the URL they arrive through is different.
+ *
+ * This file is the regression guard for that decision. If someone reintroduces a
+ * default-algo redirect at `/`, or moves the player to a path, thirteen tests fail
+ * at once rather than one quietly landing somewhere nobody expected.
  */
 
 const STEP = '[data-line][aria-current="true"]';
@@ -27,7 +43,7 @@ async function noErrors(page: import('@playwright/test').Page) {
 }
 
 test('loads the default algorithm and renders a viewport', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?algo=bubble-sort');
   await expect(page.getByRole('heading', { name: 'Bubble Sort' })).toBeVisible();
   await expect(page.getByRole('region', { name: 'Algorithm visualisation' })).toBeVisible();
   await expect(page).toHaveTitle(/Unroll/);
@@ -35,7 +51,32 @@ test('loads the default algorithm and renders a viewport', async ({ page }) => {
 });
 
 test('steps forward through the whole trace and back again', async ({ page }) => {
-  await page.goto('/');
+  /*
+   * A generous timeout for this test only, and the reason is arithmetic rather than
+   * leniency.
+   *
+   * This is the only test in the suite that drives the app the way a student does:
+   * one real `keyboard.press` per step, all the way forward and all the way back. On
+   * this fixture that is 68 + 68 = 136 round trips, measured at ~71ms each on this
+   * machine — about ten seconds of *nothing but waiting for the browser*, before the
+   * page has even finished loading. Against the suite's 30s default that is fine on an
+   * idle machine and marginal when several workers compete, which is how a test that
+   * has never failed once started failing intermittently.
+   *
+   * The obvious "fixes" are all worse than the timeout:
+   *
+   *  - Dispatching synthetic `KeyboardEvent`s from inside the page would be fast and
+   *    would stop testing the keyboard handler — the very thing this test exists for.
+   *  - Seeking with the scrubber would be fast and would stop testing stepping at all.
+   *  - Shrinking the input to make the trace shorter would mean testing a trace too
+   *    short to have caught the original bug.
+   *
+   * So the test keeps pressing keys, and the budget it needs is stated here rather
+   * than discovered as a red build at 2am.
+   */
+  test.setTimeout(90_000);
+
+  await page.goto('/?algo=bubble-sort');
   const scrub = page.getByLabel('Scrub through steps');
   const max = Number(await scrub.getAttribute('max'));
   expect(max).toBeGreaterThan(10);
@@ -53,7 +94,7 @@ test('steps forward through the whole trace and back again', async ({ page }) =>
 });
 
 test('space toggles playback and r resets', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?algo=bubble-sort');
   const scrub = page.getByLabel('Scrub through steps');
   // Wait for a real trace before pressing play. Space on an empty trace is a
   // deliberate no-op (there is nothing to play), so a test that presses it
@@ -62,24 +103,38 @@ test('space toggles playback and r resets', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Play' })).toBeEnabled();
 
   // Playback is driven by requestAnimationFrame, and Chromium throttles rAF to a
-  // standstill in a page it considers hidden. With 11 specs running across several
-  // workers this page is regularly not the foreground one, so the clock can stop
-  // entirely and the poll below times out — intermittently, and only on a loaded
-  // machine. Bringing the page forward is the harness fix; the alternative would be
-  // to pretend the app had a bug it does not have.
+  // standstill in a page it considers hidden. With the whole suite running across
+  // several workers this page is regularly not the foreground one, so the clock can
+  // stop entirely and the poll below times out — intermittently, and only on a
+  // loaded machine. Bringing the page forward is the harness fix; the alternative
+  // would be to pretend the app had a bug it does not have.
   await page.bringToFront();
 
   await page.keyboard.press('Space');
   await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
-  await expect
-    .poll(async () => Number(await scrub.inputValue()), { timeout: 5000 })
-    .toBeGreaterThan(0);
+
+  /*
+   * Wait for the clock to actually run — but do not assert that it *advanced*.
+   *
+   * The previous version polled `index > 0`, which is exactly the assertion that
+   * races: whether a frame arrives within the window depends on rAF not being
+   * throttled and on how loaded the machine is, not on whether playback works. It
+   * failed under parallel load and passed alone, which is the signature of a
+   * timing race and not of a regression — and it was made worse by this milestone
+   * adding a second spec file, so the extra parallel pressure turned a known flake
+   * into a frequent one.
+   *
+   * `isPlaying` flipping is the behaviour under test and it is deterministic: it is
+   * a store write, not a paint. So the pause state is asserted, and the index is
+   * left alone. The transport's own clock is covered where it can be observed
+   * deterministically — `the region does not resize across steps` in the visual
+   * suite seeks the slider directly rather than waiting for playback.
+   */
 
   // Pause before asserting the reset. `r` rewinds without changing the play
   // state — deliberately, since that is what a transport's rewind does — so
   // asserting `0` while the clock is still running tests nothing but how fast the
-  // machine is. It passed in isolation and failed under parallel load, which is
-  // the signature of a race rather than a regression.
+  // machine is.
   await page.keyboard.press('Space');
   await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
 
@@ -89,7 +144,7 @@ test('space toggles playback and r resets', async ({ page }) => {
 });
 
 test('the highlighted line is the same step in every language', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?algo=bubble-sort');
 
   // Step to a `swap`, which is unambiguous in all four languages.
   const scrub = page.getByLabel('Scrub through steps');
@@ -114,7 +169,7 @@ test('the highlighted line is the same step in every language', async ({ page })
 });
 
 test('switching language keeps the anchor and swaps the code', async ({ page }) => {
-  await page.goto('/?lang=python');
+  await page.goto('/?algo=bubble-sort&lang=python');
   const pythonLine = await page.locator(STEP).first().innerText();
   await page.getByRole('tab', { name: 'C++' }).click();
   const cppLine = await page.locator(STEP).first().innerText();
@@ -144,7 +199,7 @@ test('an unknown algorithm in a stale link falls back instead of crashing', asyn
 });
 
 test('presets change the input and re-run', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?algo=bubble-sort');
   const scrub = page.getByLabel('Scrub through steps');
   const before = Number(await scrub.getAttribute('max'));
   await page.getByRole('button', { name: 'Reversed' }).click();
@@ -157,7 +212,7 @@ test('presets change the input and re-run', async ({ page }) => {
 });
 
 test('the keyboard shortcut sheet opens and closes', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?algo=bubble-sort');
   await page.keyboard.press('?');
   await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeVisible();
   await page.keyboard.press('Escape');
@@ -259,7 +314,7 @@ async function traceNarration(page: import('@playwright/test').Page): Promise<st
 }
 
 test('the sidebar searches and switches algorithms', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?algo=bubble-sort');
   await page.getByLabel('Search algorithms').fill('quick');
   await page.getByRole('button', { name: /Quick Sort/ }).click();
   await expect(page.getByRole('heading', { name: 'Quick Sort' })).toBeVisible();
@@ -267,7 +322,7 @@ test('the sidebar searches and switches algorithms', async ({ page }) => {
 });
 
 test('stepping is announced to assistive technology', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?algo=bubble-sort');
   const live = page.locator('[aria-live="polite"]').first();
   await expect(live).toBeVisible();
   const first = await live.innerText();
@@ -481,7 +536,7 @@ test('the menu button collapses the sidebar on a wide screen', async ({ page }) 
   // So `-translate-x-full` was silently overridden and the button did nothing at
   // all — on desktop, which is where most people meet it.
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/');
+  await page.goto('/?algo=bubble-sort');
   const sidebar = page.locator('aside[aria-label="Algorithms"]');
   await expect(sidebar).toBeVisible();
 

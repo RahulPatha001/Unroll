@@ -178,7 +178,21 @@ describe('the core/ boundary', () => {
  * measure failure.
  */
 describe('the lazy-loading boundary', () => {
-  const FEATURES = 'src/features';
+  /*
+   * Every directory that ships to the browser outside `core/`.
+   *
+   * `features/` was the only one when this rule was written, because `features/`
+   * was the only one. Adding `app/` and `features/learn/` matters more than it
+   * looks: both render algorithm frames — `ComparePage` builds two traces and
+   * `EmbeddedStepper` builds one — so both are exactly the kind of module that
+   * reaches for `registry.ts` to get at an algorithm, and exactly the kind of
+   * import that puts 66 generators and 264 source listings into the entry chunk.
+   *
+   * They go through `loadAlgorithm` instead, which is a dynamic `import()`, so each
+   * algorithm stays in its own lazy chunk. This test is what stops a future "just
+   * import it directly here" from quietly undoing that.
+   */
+  const BROWSER_DIRS = ['src/features', 'src/app', 'src/features/learn'];
 
   function walk(dir: string, out: string[] = []): string[] {
     for (const entry of readdirSync(dir)) {
@@ -205,15 +219,47 @@ describe('the lazy-loading boundary', () => {
      * this test makes any future drift a failing test rather than a slow app.
      */
     const offenders: string[] = [];
-    for (const file of walk(FEATURES)) {
-      const code = stripCommentsAndStrings(readFileSync(file, 'utf8'));
-      if (/from\s+['"][^'"]*algorithms\/registry\.ts['"]/.test(code)) {
-        offenders.push(file);
+    for (const dir of BROWSER_DIRS) {
+      for (const file of walk(dir)) {
+        const code = stripCommentsAndStrings(readFileSync(file, 'utf8'));
+        if (/from\s+['"][^'"]*algorithms\/registry\.ts['"]/.test(code)) {
+          offenders.push(file);
+        }
       }
     }
     expect(
       offenders,
-      'features/ must not import algorithms/registry.ts — it would pull the whole curriculum into the initial bundle. Import from catalog.ts instead.',
+      'browser code must not import algorithms/registry.ts — it would pull the whole curriculum into the initial bundle. Import from catalog.ts, or use loadAlgorithm() for a dynamic import.',
+    ).toEqual([]);
+  });
+
+  it('reaches algorithms through the lazy loader, not a direct module import', () => {
+    /*
+     * The rule above catches the registry. This catches the other way to get a
+     * similar result: importing one algorithm module *by path* and using it
+     * directly.
+     *
+     * That is a static import too, so it does not blow up the whole curriculum — it
+     * silently defeats the code splitting for exactly one algorithm, which is worse
+     * in a way, because the bundle table shows a plausible-looking chunk and nothing
+     * anywhere fails. `loadAlgorithm` is the only supported way in; anything
+     * reaching for a file under `algorithms/<category>/` is bypassing it.
+     *
+     * The negative lookahead lets through the metadata modules, which are pure data
+     * and are meant to be imported directly.
+     */
+    const offenders: string[] = [];
+    const direct =
+      /from\s+['"][^'"]*algorithms\/(?!registry\.ts|catalog\.ts|catalog-types\.ts|types\.ts)[a-z-]+\//;
+    for (const dir of BROWSER_DIRS) {
+      for (const file of walk(dir)) {
+        const code = stripCommentsAndStrings(readFileSync(file, 'utf8'));
+        if (direct.test(code)) offenders.push(file);
+      }
+    }
+    expect(
+      offenders,
+      'browser code must reach algorithm modules through loadAlgorithm(), not a direct path import — a direct import defeats the per-algorithm code split.',
     ).toEqual([]);
   });
 
@@ -230,5 +276,59 @@ describe('the lazy-loading boundary', () => {
         );
       }
     }
+  });
+});
+
+/**
+ * The `core/learn/` boundary.
+ *
+ * `core/learn/` is the article *data* layer, and the only reason it lives under
+ * `core/` at all is that it is plain data: no React, no DOM, testable in Node.
+ * That is what lets `learn.test.ts` check every `algoId` and every preset an
+ * article references without rendering anything — which is the only reason a stale
+ * reference in an article is caught before a reader finds it.
+ *
+ * If an article ever grew an import of the algorithm registry, or anything
+ * React-shaped, this layer would stop being plain data and that test would need a
+ * DOM. So the property is checked rather than assumed, for the same reason the
+ * `core/` rules above are.
+ */
+describe('the learn/ boundary', () => {
+  function walkLearn(dir: string, out: string[] = []): string[] {
+    for (const entry of readdirSync(dir)) {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) walkLearn(full, out);
+      else if (/\.ts$/.test(entry)) out.push(full);
+    }
+    return out;
+  }
+
+  it('article data imports no React, no DOM, and no algorithm modules', () => {
+    const problems: string[] = [];
+    const files = walkLearn('src/core/learn');
+    // A silent zero here would make the check vacuous, which is the failure mode
+    // this file exists to prevent everywhere.
+    expect(files.length).toBeGreaterThan(2);
+
+    for (const file of files) {
+      if (file.endsWith('.test.ts')) continue;
+      const code = stripCommentsAndStrings(readFileSync(file, 'utf8'));
+      for (const re of [IMPORT_RE, BARE_IMPORT_RE]) {
+        re.lastIndex = 0;
+        let m = re.exec(code);
+        while (m) {
+          const spec = m[1] ?? '';
+          if (
+            /^(react|react-dom|shiki|lucide-react|zustand)(\/.*)?$/.test(spec) ||
+            /algorithms\/registry\.ts$/.test(spec) ||
+            /^node:/.test(spec)
+          ) {
+            problems.push(`${file}: imports "${spec}" — core/learn is plain data`);
+          }
+          m = re.exec(code);
+        }
+      }
+    }
+    expect(problems).toEqual([]);
   });
 });

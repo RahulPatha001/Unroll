@@ -5,6 +5,36 @@ A short map of the codebase and the reasoning behind its load-bearing decisions.
 
 ---
 
+## `--step-beat`: one step, one moment
+
+The product's claim is that the animation and the code are the same program, and
+until now the UI asserted that only *structurally* — a highlighted line, a sentence
+about it, a data structure that moved. Three **separate** animations with three
+different durations (220ms for the note, 600ms for the line flash, and the data's
+own) meant that on every step the three responses arrived slightly apart, and the eye
+read them as three unrelated updates that happened to be nearby.
+
+`--step-beat` (260ms) and `--step-ease` in `index.css` are now shared by everything
+that reacts to a step:
+
+| Element | Animation |
+| --- | --- |
+| the narration card's accent bar | `line-locate` (keyed on `index`) |
+| the narration sentence | `note-enter` |
+| the active code line's accent bar | `line-locate` + `line-flash` |
+
+So on a step change the sentence, the bar beside it and the line it describes all
+start and finish together. That is the whole thesis expressed as a timing and colour
+relationship — the only form of it a user can actually perceive, and the reason the
+narration card carries an accent thread at all when the code panel 700px away
+carries the same colour.
+
+`line-flash` was also retimed from 600ms. At 600 it was still fading when the next
+step's flash began, so consecutive steps smeared together and a fast reader never
+saw it reach the resting highlight — it read as a permanent tint rather than a flash.
+
+---
+
 ## The two contracts
 
 Everything in this app descends from two contracts. If you understand these, the
@@ -183,7 +213,19 @@ Three decisions in it are not obvious:
   before the restore completes writes the default preset over a custom input from
   the link, and the link quietly stops working.
 
-Files: `src/lib/urlState.ts`, `src/features/player/useUrlSync.ts`.
+And now that there is a router, one more that matters:
+
+- **The router owns the path; `useUrlSync` owns the query string.** They do not
+  fight, because a `replaceState` that changes only the query does not fire
+  `popstate` — so the router's location goes stale, and nothing on the player route
+  reads `location.search` through it. The player reads its state from the store and
+  decides which page to render from the *presence of the `algo` key*. A real
+  navigation fires `popstate`, the router updates, and `useUrlSync`'s listener
+  re-applies the URL to the store. That is also why the per-frame writes use
+  `replaceState` and not `pushState`.
+
+Files: `src/lib/urlState.ts`, `src/features/player/useUrlSync.ts`,
+`src/app/routes.tsx`.
 
 ### 5. The logo
 
@@ -231,36 +273,84 @@ src/
 │   ├── code/                 anchor parsing, Lesson type, stripMarkers
 │   ├── algorithms/
 │   │   ├── types.ts          AlgoDef, Preset, Expectation, ParamSpec
-│   │   ├── catalog.ts        pure metadata — the sidebar's whole data source
+│   │   ├── catalog.ts        pure metadata — sidebar + browse grid data source
 │   │   ├── registry.ts       eager static imports; Node-only
 │   │   ├── contract.test.ts  the contract test (see below)
 │   │   └── <family>/         one file per algorithm
+│   ├── learn/                guide articles as PLAIN DATA (no React, so the
+│   │   ├── types.ts          article + block schema; the `stepper` block is
+│   │   │                     what lets a guide embed its own visualisation
+│   │   ├── articles/         the prose
+│   │   └── learn.test.ts     every algoId / preset / table is checked
 │   └── input/                seeded RNG, input shapes, generators,
 │                             fields.ts (the custom-input parser)
 │
+├── app/                      ← routing and the pages
+│   ├── routes.tsx            the route table — one place to read what is where
+│   ├── TopNav.tsx            the site header, on every route
+│   ├── PageShell.tsx         h-dvh + overflow-y-auto; the scroll container
+│   ├── Browse.tsx            the selection page (`/`)
+│   ├── FamilyRail.tsx        14 families, counts + blurbs
+│   ├── AlgoRow.tsx           one algorithm in the browse list
+│   ├── FamilyGlyph.tsx       a shape mark per frame kind
+│   ├── LearnIndex.tsx        the guides index (lazy)
+│   ├── ArticlePage.tsx       one guide (lazy)
+│   ├── ComparePage.tsx       two algorithms, one input (lazy)
+│   ├── NotFound.tsx          the `*` route
+│   ├── CommandPalette.tsx    ⌘K over algorithms AND guides
+│   └── library.ts            favourites + recently viewed (localStorage)
+│
 ├── features/                 ← everything that knows about React
-│   ├── player/               store, transport, narration, keyboard, URL sync
-│   ├── viewport/             one component per frame kind
+│   ├── player/               store, transport, narration, keyboard, URL sync,
+│   │                         Scrubber (the shared range-with-a-track)
+│   ├── viewport/             one component per frame kind, each lazily loaded
+│   ├── learn/                ArticleBody (blocks → elements) + EmbeddedStepper
 │   ├── code-panel/           the anchor ↔ line highlight
 │   ├── controls/             header: complexity, presets, params
-│   ├── input/                the custom-input editor
+│   ├── input/                the custom-input editor (lazy)
 │   ├── nav/                  the algorithm index
 │   └── registry/loaders.ts   lazy algorithm loading (import.meta.glob)
 │
 ├── workers/trace.worker.ts   off-main-thread materialisation
-├── lib/                      cn(), URL state
-└── App.tsx                   the three-column shell
+├── lib/                      cn(), URL state, storage, inline markup
+├── App.tsx                   the visualiser — a ROUTE, not the application
+└── main.tsx                  BrowserRouter + the route table
 
 tools/
 ├── verify/                   the 4-language parity harness
 │   ├── harness.ts            compile, run, diff, report
 │   └── drivers/              one shared driver per language
-└── budget.mjs                initial-payload budget
+├── budget.mjs                initial-payload budget (walks the import graph)
+└── checkTokens.mjs           token utilities actually emit CSS
 
 tests/
-├── e2e/                      Playwright, behavioural
+├── e2e/                      Playwright: app.spec.ts (the player), pages.spec.ts
+├── visual/                   screens.spec.ts (player), pages.spec.ts, harness
 └── parity/                   the whole-curriculum parity run
 ```
+
+### Routing, and why `/` is conditional
+
+The app has six routes. The non-obvious one is the root, which renders the browse
+page at `/` and the visualiser at `/?algo=<id>` — the split is **the presence of the
+`algo` key**, not the path.
+
+`App.tsx` is therefore a route and not the application. `main.tsx` owns the router,
+`app/routes.tsx` owns the table, and everything else is handed an `onNavigate`
+callback rather than calling `useNavigate` itself, so cross-page transitions are all
+visible in one file.
+
+What is eager is as deliberate as what is lazy. `App` — the player — is **not**
+code-split, because it is the default destination for every link this app has ever
+shared and lazy-loading it would add a round trip to the most common entry in the
+product. The pages pay instead: `/learn`, `/learn/:slug` and `/compare` each carry a
+trace builder, and none of that is in the entry chunk.
+
+The one that was *not* obvious is `LearnIndex`. It is a list of links, but it
+imports the article registry, and that statically imports every article — so an
+eager `LearnIndex` put ~40 kB of prose into the entry chunk where every visitor paid
+for it. Same class of mistake as the `registry.ts` import below, same place it was
+found: `tools/budget.mjs`.
 
 ---
 
@@ -423,6 +513,63 @@ everything per tick. So:
   React throws "maximum update depth exceeded". This is the single most common
   Zustand mistake in this codebase; it is commented at the one place it applies.
 
+### The transport's one row or two, and why a container query
+
+The transport was two rows at every width: controls, then a scrubber. It is now one
+row whenever they fit and two when they do not.
+
+The width that decides it is the **middle column's**, which is
+`viewport − 288 sidebar − clamp(360px, 32vw, 560px) code panel`. That expression is
+not monotonic in the viewport — the code panel's own clamp widens again past 1536 —
+so an `xl:`/`2xl:` variant would be a hardcoded guess that is right at some widths
+and wrong at others. `<main>` is therefore `@container` and the row switches at
+`@min-[620px]` of its own width: the number at which the controls plus a usable
+scrubber actually fit, which is also the property being measured.
+
+Measured after: transport 99px → 65px and the visualisation region 552 → 586 at
+1440, 1920 and 2560; unchanged at 1280/1281, where the column is 582px and two rows
+is the honest answer.
+
+**At 390 the transport grew from 99 to 127.** That is a deliberate trade, not an
+oversight: the controls row is `flex-wrap`, so below the container threshold the
+speed selector wraps onto its own line instead of being pushed off the right edge
+and clipped. Before, the speed control was *invisible and unreachable* on a phone
+and the 99px was bought with a control that could not be used. The visualisation is
+still 468px on a 390×844 screen.
+
+### The code explanation, moved inline
+
+The per-anchor note used to be a collapsible pane pinned below the listing, up to
+160px — over a third of a laptop's listing. It now renders in the flow, directly
+beneath the last line of the active range, which returns all of that to the code.
+
+Three things had to be true for that, and each was found by measuring rather than by
+reading:
+
+- **It must be a sibling of the row, not a child.** Inserted as a child of the row
+  `div` — which is `flex` — it became a third flex item and sat *beside* the code.
+  Measured: the row's text ended at x≈1215 and the note occupied
+  `1215,240 1312x49`, pushed to the right of the line it was meant to follow. It is
+  now wrapped in a `Fragment` so it stacks underneath.
+- **It must override `white-space`.** The listing is a `<pre>`, so the note inherited
+  `pre` and its prose never wrapped.
+- **It needs a definite width.** The `<pre>` is `min-w-max`, so a block child's
+  max-content *is* its unwrapped length — the 1312px note was widening the whole
+  listing. `w-[56ch]` caps its contribution; the code, which is longer in every
+  listing that scrolls horizontally, keeps deciding the width. Merge Sort's listing
+  went from 1563px to 743px once this was fixed.
+
+And the default flipped to **collapsed**. Pinned below the listing, expanded-by-
+default was affordable because it did not push the code. Inline, it pushed the code
+down by up to 110px. Collapsed shows two clamped lines attached to the line, which is
+strictly better than the old arrangement where collapsed meant nothing but a
+`line 8 · base-case` label.
+
+`data-anchor`, `data-line` and `data-explained` are unchanged and are contracts, not
+instrumentation: the e2e suite proves the *same step* is highlighted in all four
+languages by comparing `data-anchor` across a language switch, so all three have to
+exist whether or not the note is expanded.
+
 ### A layout rule worth knowing
 
 A percentage height does **not** resolve against a `flex: 1 1 0%` parent. Filling
@@ -535,6 +682,19 @@ and the check is bypassed.
 
 Frame kinds: `array`, `linear`, `linked`, `hash`, `tree`, `trie`, `graph`, `grid`.
 
+**All eight renderers are lazily loaded.** A given run needs exactly one — `ArrayView`
+draws arrays and has nothing to say about a trie — and they are ~2,000 lines
+together, so importing them statically meant every visitor downloaded all eight to
+look at a bar chart. The `Suspense` boundary sits *around* the switch rather than
+inside each branch, so there is one fallback instead of eight to keep identical, and
+any two of them drifting would be indistinguishable.
+
+The fallback occupies exactly the box the renderer will, because a visualisation that
+changes size for any reason other than the algorithm is a bug the student can see.
+It is deliberately *not* a skeleton of grey bars: a skeleton implies a known shape,
+and a graph or a trie has no shape to guess. A placeholder that looks like the real
+thing and then becomes something else is worse than an honest blank.
+
 ---
 
 ## Trace construction: one path, two backends
@@ -576,6 +736,167 @@ the catalog and the modules never drift.
 resolves them all at build time, so test files must be excluded **in the glob**
 (`['…/**/*.ts', '!**/*.test.ts']`), not in a runtime `if` — a `.test.ts` left in
 the graph fails the production build on one of its own imports.
+
+The catalog now also carries each algorithm's `complexity`, which the browse list
+shows. It did not before, and the alternative was for that list to load all 66
+modules to read two numbers — precisely what the boundary test forbids. So the field
+is *duplicated* into the generated file: about 2 kB across the catalog, against 371
+kB for the mistake of importing `registry.ts`. `contract.test.ts` asserts the two
+copies agree, and `searchCatalog` reads the numbers too, so searching `nlogn` or
+`linear` finds the algorithms that have that cost.
+
+---
+
+## The browse page: rows, a rail, and three things that are deliberately absent
+
+The selection page went through a full rewrite, and the reasoning is worth keeping
+because two of the decisions were made *against* an obvious feature that the data
+killed.
+
+### What the first version cost
+
+It was a hero, a stats row, a glowing CTA and a wall of 66 cards. Measured on its
+own captured baselines: **470px of 900px (52%) of preamble on a desktop, and 610px
+of 844px (72%) on a phone** — where you saw one and a half cards, on the page whose
+entire job is letting you pick one of 66 things.
+
+It was also the wrong register. The rest of the app is a dense keyboard-driven
+instrument, and the front door was a marketing page. `index.css` had already made
+that argument in the other direction — *"a pulsing background behind a button is a
+well-worn way to make an interface feel like a landing page rather than a tool"* —
+and the page then did precisely that. The `glow-breathe` keyframe is still in
+`index.css` and is now used nowhere, which is the honest end state for a decoration
+that should not have shipped.
+
+### The rail, because fourteen things do not fit in a row of pills
+
+A pill row cannot hold fourteen items without either wrapping — which makes the
+toolbar's height a function of the window width, the exact defect `index.css`
+documents about the player's control row — or scrolling sideways with the last pill
+cut in half. The old page did the latter, and a half-visible "Heaps" reads as a
+broken layout rather than as "there is more this way".
+
+A rail holds all fourteen vertically at any width, with room for each one's **count
+and blurb**. That is the point: `CATEGORIES` ships a hand-written line per family
+("Nodes, edges, traversal", "Trade space for speed"), and a pill said "Graphs" where
+a rail says what graphs are, how many there are, and how to get there. It also bounds
+the choice — the largest family is ten algorithms, so choosing one means a list that
+fits on a screen.
+
+The active indicator is a pseudo-element that scales in, **not** a shared sliding
+bar. A sliding indicator has to measure the active item's offset, which fights the
+rail's own layout and desynchronises the moment the rail wraps or the window resizes
+mid-transition.
+
+### Three things that are absent, on purpose
+
+**A learning path.** The obvious feature, and the data killed it twice. The level
+split is **19 intro / 37 intermediate / 10 advanced** — a three-stage path has stage
+two as a wall again. And deriving an on-ramp from intro-level algorithms in catalog
+order gives bubble → insertion → selection → binary search → linear search → container
+with most water: three quadratic sorts running, then straight into two-pointer
+container problems. That is not a designed path, it is an accident of ordering, and
+presenting an accident as pedagogy is worse than offering no path.
+
+So the only guidance is *true*: where you actually left off, and the family taxonomy
+the data already carries. A curated on-ramp would be real content work and a
+judgement call; it is not something to invent silently.
+
+**Sticky family headings.** They were, and they broke two e2e tests. A pinned 30px
+band sits over the list, so anything scrolled to the top of the container lands
+underneath it — including the favourite star at a row's far right, which is
+focusable and clickable and then silently is not. The heading still marks the
+boundary between families as you scroll, and the rail keeps the current family
+visible anyway; pinning bought a little orientation and cost a reachable control.
+
+**A hover translation.** A 2px `translate-x` on the row felt like life and made two
+tests fail with *"element is not stable"*. A row is a full-width click target: hover
+it near the edge of the viewport, it shifts, the pointer is now over a different part
+of it, hover is lost, the transform is removed, it shifts back. The transform
+oscillates for as long as the pointer rests there. A human notices this as a row
+that resists being clicked; the test noticed it as a timeout. Hover is background and
+border only.
+
+### The row's two invariants
+
+**An algorithm name is never truncated.** On mobile the name wraps to two lines
+(`line-clamp-2`) rather than truncating, because "Longest Repeating Character
+Replacement" is 39 characters and `truncate` would cut a real algorithm's name in
+half — which is the failure the whole row was rebuilt to avoid. Below `sm` the meta
+block drops to its own line, because the complexity, a ~95px `INTERMEDIATE` label and
+the star together leave the title about 60px, and Counting Sort rendered as
+**"Countin…"**.
+
+**The favourite star is above the stretched link.** The row is an `<article>` with an
+`absolute inset-0 z-0` anchor covering it, so the star needs `relative z-10` or it is
+unclickable — the click lands on the link and navigates instead of saving, which is
+exactly what the two-target design exists to prevent. Dropping that class during a
+refactor made it unclickable, and an e2e test caught it.
+
+It also carries `scroll-margin-top`, on the **button** rather than the row, because
+`scroll-margin` resolves against the element being scrolled and the browser scrolls
+the *focused* element. With the margin only on the row, tabbing to the favourite of
+an algorithm 60 rows down put it flush under the sticky toolbar: focused, visible,
+and inert.
+
+---
+
+## The guides: articles that embed their own visualisation
+
+`core/learn/` holds article prose as **plain data** — no React, no DOM — and
+`features/learn/` renders it. The split is not tidiness; it is what lets
+`learn.test.ts` check every article's `algoId`, every `stepper` preset and every
+table's shape in plain Node, with no DOM.
+
+That test earns its keep because `EmbeddedStepper` *degrades gracefully*. A chunk
+that fails to load renders an inline note plus a direct link to the full
+visualiser, which is the right production behaviour and a terrible test strategy:
+the same tolerance that makes it safe in production also hides a stale preset id
+from CI. So the references are checked from the data side, where "does this preset
+exist" is a plain lookup.
+
+Three decisions worth recording:
+
+- **Blocks, not Markdown.** The `stepper` block is the reason. A paragraph saying
+  "watch the invariant break" next to a stepper you can drag is the thing a static
+  illustration of bubble sort cannot be, and no Markdown dialect carries that. Every
+  plugin that tries ends up a `dangerouslySetInnerHTML` island — precisely what the
+  rest of the app is careful to avoid.
+- **No Shiki in articles.** Four or five explanatory code blocks per article would
+  mean four or five more dynamic imports of the grammar, most of a second on a cold
+  load, on the page a reader is most likely to arrive at from a search result. Plain
+  monospace in a box is legible and free.
+- **Not built on `playerStore`.** It is a singleton, it owns the URL, and it owns
+  the global keyboard shortcuts. Two of them in one page is impossible, and even if
+  it were possible an article's stepper would fight the main player over `Space` and
+  `Escape`. So it is deliberately a small, self-contained, read-only player: local
+  state, no store, no URL, no global shortcuts.
+
+Compare mode makes the same trade for the same reason — two traces in local state,
+one shared transport — with one honest constraint it surfaces rather than hides: the
+two algorithms must accept the same *input shape*, or the step counts are not
+comparable. A mismatch is stated plainly and both keep their own preset, labelled as
+such, because a side-by-side that looks authoritative and means nothing is worse
+than one that admits its limits.
+
+---
+
+## Inline markup
+
+`lib/richText.tsx` renders `**strong**` and `` `code` `` and nothing else.
+
+It is all-or-nothing on purpose: if either marker is unpaired anywhere in the
+string, the **whole** string is emitted verbatim. Half-applying would produce a
+sentence with one bolded run and one literal marker pair, which reads as a rendering
+bug — whereas a sentence with its markers intact reads as a typo, which is what it
+is.
+
+This was written after the first seven articles shipped, all of which reached for
+backticks and all of which rendered them literally on screen. Nobody noticed for a
+while, which is the same failure mode as the 28 narration notes that shipped with
+visible `**` before this module existed: prose is rarely read by the person who
+wrote it, so a rendering defect in prose is invisible to review. The article
+baselines are what caught it this time.
 
 ---
 
@@ -630,9 +951,46 @@ bundled — the boundary rule is what guarantees that.
 | Contract | `npm test` | *every* algorithm: runs, terminates, valid trace, every anchor resolves in all four languages, no dead notes, one expectation per preset |
 | Parity | `npm run verify:langs` | all four languages return the same thing on every preset — **not** that any of them is right |
 | E2E | `npm run test:e2e` | deep links, stepping both directions, the same step highlighted in four languages, a11y announcements |
-| Visual | `npm run test:visual` | geometry baselines in JSON, plus screenshots at 3 widths per renderer and per UI state |
+| Pages | `npm run test:e2e` | `/` is the browse page, cards open the right algorithm, ⌘K, favourites survive a reload, guides render, an embedded stepper steps, every route has a 404 with a way out — and each path survives a **cold load**, which is what proves the SPA rewrite exists on that host |
+| Visual | `npm run test:visual` | geometry baselines in JSON, plus screenshots at 3 widths per renderer, per UI state, and per page |
 | Baselines | `npm run snapshots:update` | refreshes both. Build first — the baselines are of the production bundle |
-| Budget | `node tools/budget.mjs` | initial payload under 200 kB gzip |
+| Budget | `node tools/budget.mjs` | initial payload under 200 kB gzip, measured by walking the static import graph |
+
+### The budget tool's measurement was broken, and that is the interesting part
+
+It used to classify a file as initial by filename pattern: `/^index-.*\.(js|css)$/`
+or `/^[a-z-]+\.(js|css)$/`. Both are wrong, and the second is wrong in the dangerous
+direction — Vite and rolldown hash every emitted filename, so a chunk called
+`react.js` is emitted as `react-BhrwgiWi.js`, the regex does not match, and **React
+was never counted**. 78 kB gzip, the single largest thing a visitor downloads.
+
+So the gate read 106 kB and passed green while the real first load was over 200 kB.
+Worse, it read as *evidence of health*: a number well under budget, on a build that
+was over it. A safety net that does not measure the thing it names is worse than no
+safety net, because it is trusted.
+
+Whether a chunk is initial is a property of the **graph**, not of its name, so it is
+now computed by breadth-first walk of static imports from the entry. Two details
+were both wrong in the first attempt and are worth keeping in mind if this is ever
+rewritten:
+
+- **The space before `from` is optional.** Minified output is `import{r as
+  e}from"./a.js"`. A pattern written `\sfrom` matches nothing in a built bundle, the
+  walk finds zero imports, and every chunk is classified lazy.
+- **The specifier body must exclude `(` and `)`**, which is what separates
+  `import{x}from"./a.js"` (follow it) from `import("./a.js")` (do not). Without it
+  the walk pulls the entire lazy curriculum into the initial total.
+
+And there is now a guard: if the react vendor chunk is missing from the initial set,
+the script fails. That is the symptom of the measurement breaking again, and it is
+worth a loud failure rather than another comfortable-looking number.
+
+Fixing the measurement is what found the two real over-budget imports — the eager
+`LearnIndex` pulling 40 kB of article prose, and `InputEditor`'s ~19 kB, which is a
+transient sheet that was *already* only mounted when open — plus the eight eagerly
+imported viewport renderers, of which any single run needs one.
+| Tokens | `npm run check:tokens` | every token utility referenced in `src/` emits a rule in the built CSS |
+| Articles | `npm test` | every article's `algoId`, `stepper` preset and table shape resolves; slugs unique and URL-safe |
 
 The **contract test** is the highest-value one. With 66 algorithms the
 characteristic failure is not a broken algorithm, it is a module that renders fine
@@ -658,8 +1016,26 @@ So there are now two visual layers, and the split between them is the point:
   relationship. The `maxDiffPixelRatio` is 0.002, deliberately tiny: it exists to
   absorb antialiasing, not to permit a layout change.
 - **Screenshots**, for "does it still look right", at 3 widths per renderer and
-  per UI state — not the full cross-product. 26 images, byte-identical across
-  consecutive runs, which is verified rather than assumed.
+  per UI state — not the full cross-product. 21 images for the player plus 11 for
+  the pages, byte-identical across consecutive runs, which is verified rather than
+  assumed.
+
+The pages get their own spec (`visual/pages.spec.ts`) rather than being appended to
+`screens.spec.ts`, because the settle condition is a different *kind* of thing. A
+player fixture is photographable once the trace is built and Shiki has resolved; a
+guide is photographable once its stepper has drawn a frame, and each page has a
+different answer. One shared `settle` would make every capture pay for every other
+page's loading — and, worse, a stepper that never resolved would make the suite slow
+rather than making one baseline wrong.
+
+That distinction caught two real defects rather than confirming the design. The
+browse-filtered baseline could not find the family heading it was supposed to be
+freezing, which turned out to be a grouping rule that rendered *no* heading when a
+filter narrowed to a single family. And the article baseline photographed a bar
+chart as a thin strip at the top of an empty box, because the stepper's viewport
+wrapper was a plain block and every viewport's root is `flex-1` in a column —
+so the chart had no definite height to resolve against. Neither was visible by
+reading the code.
 
 A defect is nearly always a *relationship* — "these two boxes must not both be
 open", "this box's height must not depend on that one's" — and that is what the

@@ -163,16 +163,42 @@ export function StepNarration() {
   const canExpand = clipped && frame !== null;
 
   return (
-    <div className="shrink-0 border-b border-border/80 bg-surface-raised/50">
+    <div className="relative shrink-0 border-b border-border/80 bg-surface-raised/50">
+      {/*
+        The accent thread.
+
+        A 2px bar down the left edge of this card, in the same accent as the
+        highlighted line's border in the code panel — and keyed on `index`, so it
+        runs the same `line-locate` animation on the same `--step-beat` as the note
+        and the line. Three things now move together when a step changes: this bar,
+        the sentence, and the line it describes.
+
+        That is the product's claim expressed as a timing and colour relationship
+        rather than as a sentence in a README: the narration and the code are
+        marked as the same moment, in the same colour, on the same beat. The two
+        panes are 700px apart on a 1440 screen and nothing else on the page connects
+        them visually.
+
+        `aria-hidden`, because it carries no information the sentence does not.
+      */}
+      <span
+        key={index}
+        aria-hidden="true"
+        className="line-locate pointer-events-none absolute inset-y-0 left-0 w-0.5 bg-gradient-to-b from-accent via-accent to-accent/15"
+      />
       {/*
         A fixed `h`, not a `min-h`. A minimum still grows with the content, which
         is the bug being fixed here.
+
+        `pl-5` rather than `px-4`: the thread occupies the first 2px, and 20px of
+        padding clears it with room to breathe. `px-4`'s 16px would have put the
+        sentence 2px from the bar.
 
         `tabIndex={-1}` is not focusability for its own sake: it is where focus
         lands when the reader is closed on a step whose note no longer overflows and
         the button that opened it has therefore been removed. See `closeNote`.
       */}
-      <div ref={cardRef} tabIndex={-1} className="flex h-[104px] flex-col px-4 py-1.5">
+      <div ref={cardRef} tabIndex={-1} className="flex h-[104px] flex-col px-4 py-1.5 pl-5">
         {/*
           One metadata strip, not two, and the note below it in whatever is left.
 

@@ -7,7 +7,7 @@ import {
   SkipBack,
   SkipForward,
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SPEEDS, type Speed, stepInterval } from '../../core/trace/player.ts';
 import {
   onReducedMotionChange,
@@ -16,6 +16,7 @@ import {
 } from '../../lib/reducedMotion.ts';
 import { cn } from '../../lib/utils.ts';
 import { usePlayer, useTransportFlags } from './playerStore.ts';
+import { Scrubber } from './Scrubber.tsx';
 
 /**
  * Transport controls.
@@ -100,16 +101,35 @@ export function Transport() {
     };
   }, [isPlaying, length, dispatch]);
 
-  const onScrub = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      dispatch({ type: 'seek', index: Number(e.target.value) });
-    },
-    [dispatch],
-  );
-
   return (
+    /*
+      The transport.
+
+      ## One row or two, decided by a container query and not by a breakpoint
+
+      This used to be two rows at every width: controls, then a scrubber. At 1440 the
+      middle column is 692px — `1440 − 288` sidebar − `32vw` code panel — and the
+      control row needs about 450px on its own, so the scrubber genuinely did not fit
+      beside it and the second row was not laziness.
+
+      But the width that matters is the *middle column's*, which is
+      `viewport − 288 − clamp(360px, 32vw, 560px)` and therefore not monotonic in the
+      viewport: at 1280 the column is 532px and at 1440 it is 692px, but at 1600 the
+      code panel's own clamp starts widening the gap again. A `xl:` or `2xl:` variant
+      would be guessing at that with a hardcoded threshold that is wrong at some
+      width and right at another.
+
+      So the parent is `@container` and this row switches on `@min-[620px]` of *its
+      own* width — the number at which the controls plus a usable scrubber actually
+      fit. That is the property being tested, so it is also the property being
+      measured.
+
+      Below that it is two rows, exactly as before. The transport's height may vary
+      with the column's width, which is fine: the invariant that matters is that it
+      does not vary with the *step*, and nothing in here reads `index`.
+    */
     <div className="flex flex-col gap-2.5 border-t border-border/80 bg-surface-raised/70 px-3.5 py-3 backdrop-blur-sm">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={() => dispatch({ type: 'first' })}
@@ -174,7 +194,18 @@ export function Transport() {
           <RotateCcw className="size-4" />
         </button>
 
-        <div className="ml-auto flex items-center gap-2">
+        {/*
+          `ml-auto` only once the scrubber has joined the row.
+
+          Before that it stays un-margined and sits immediately after the playback
+          buttons, which is what it used to do — and at 390 that is measurably
+          better. An earlier version forced this group onto its own full-width line
+          below the container threshold, which read as tidier and cost 28px of
+          visualisation on a phone: the scrubber had already wrapped to a third row
+          below it, and pushing the speeds down as well made a four-row transport out
+          of what used to be three.
+        */}
+        <div className="flex items-center gap-2 @min-[620px]:ml-auto">
           <label className="flex items-center gap-1.5 text-[10px] font-medium text-text-subtle">
             <input
               type="checkbox"
@@ -238,42 +269,35 @@ export function Transport() {
             </fieldset>
           )}
         </div>
-      </div>
+        {/*
+        The scrubber, and the one-row layout.
 
-      <div className="flex items-center gap-2">
-        <span className="w-14 shrink-0 text-right font-mono text-[10px] font-medium text-text-subtle tabular-nums">
-          {length === 0 ? '—' : `${index + 1}/${length}`}
-        </span>
-        <div className="relative min-w-0 flex-1">
-          {/*
-            A filled track behind the range input. The input's own track is
-            transparent, so without this the slider is a bare thumb on a flat
-            line and "how far through am I" has to be read off the thumb's
-            position by eye.
-          */}
-          <div className="pointer-events-none absolute top-1/2 h-2 w-full -translate-y-1/2 overflow-hidden rounded-full bg-surface-inset/80">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-accent-deep via-accent to-accent-hover shadow-sm shadow-accent-deep/30"
-              style={{
-                width: `${length > 1 ? (index / (length - 1)) * 100 : 0}%`,
-              }}
-            />
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={Math.max(0, length - 1)}
-            value={index}
-            onChange={onScrub}
-            disabled={length === 0}
-            className="relative h-2 w-full cursor-pointer appearance-none rounded-full bg-transparent disabled:opacity-40"
-            aria-label="Scrub through steps"
-            aria-valuetext={`Step ${index + 1} of ${length}`}
-          />
-        </div>
-        <span className="w-14 shrink-0 font-mono text-[10px] font-medium text-text-subtle tabular-nums">
-          {length === 0 ? '—' : `${Math.round((index / Math.max(1, length - 1)) * 100)}%`}
-        </span>
+        `order-last basis-full w-full` below the container threshold — its own row,
+        exactly as before — and `@min-[620px]` returns it to the control row, taking
+        the slack with `flex-1`. `basis-0` rather than relying on `flex-1`'s default
+        basis, so the track is sized by the space *remaining* after the fixed
+        controls rather than by its own content; otherwise the track's intrinsic
+        width competes with the controls and the row wraps at a width where it
+        appears not to.
+      */}
+        <Scrubber
+          className="order-last w-full basis-full @min-[620px]:order-none @min-[620px]:w-auto @min-[620px]:basis-0 @min-[620px]:flex-1"
+          index={index}
+          length={length}
+          onSeek={(v) => dispatch({ type: 'seek', index: v })}
+          label="Scrub through steps"
+          valueText={`Step ${index + 1} of ${length}`}
+          before={
+            <span className="w-12 shrink-0 text-right font-mono text-[10px] font-medium text-text-subtle tabular-nums">
+              {length === 0 ? '—' : `${index + 1}/${length}`}
+            </span>
+          }
+          after={
+            <span className="w-11 shrink-0 font-mono text-[10px] font-medium text-text-subtle tabular-nums">
+              {length === 0 ? '—' : `${Math.round((index / Math.max(1, length - 1)) * 100)}%`}
+            </span>
+          }
+        />
       </div>
     </div>
   );

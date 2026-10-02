@@ -36,7 +36,23 @@ export function CodePanel({ onClose }: { onClose?: () => void }) {
   // Open by default: the explanation is the reason the panel exists, and hiding
   // it behind a click would undo the product claim on first paint. Collapsing is
   // for the student who has read it and now wants the listing.
-  const [explained, setExplained] = useState(true);
+  /*
+    Collapsed by default, which reverses what this panel used to do, and the reason
+    is that the note is no longer a panel.
+
+    Pinned at the bottom of the column it took up to 160px — over a third of a
+    laptop's listing — so it defaulted to collapsed there and expanded on request.
+    In the flow, under the line it explains, that trade is inverted: an expanded note
+    pushes the *code* down by up to 110px, which on a short listing means the lines
+    below the anchor go off-screen while the student is reading about them.
+
+    So the default flips to collapsed and what is on screen by default is two clamped
+    lines of the explanation, attached to the line — enough to know what it is for,
+    with the rest one click away. That is strictly better than the old arrangement,
+    where collapsed meant *nothing* but a "line 8 · base-case" label: now the gist is
+    visible without spending anything.
+  */
+  const [explained, setExplained] = useState(false);
   const dispatch = usePlayer((st) => st.dispatch);
 
   const parsed: ParsedCode | null = useMemo(
@@ -130,70 +146,151 @@ export function CodePanel({ onClose }: { onClose?: () => void }) {
           startLine={range?.start ?? null}
           endLine={range?.end ?? 1}
           onLineClick={onLineClick}
+          inlineNote={
+            range && anchor ? (
+              <InlineNote
+                anchor={anchor}
+                note={note}
+                line={range.start}
+                explained={explained}
+                onToggle={() => setExplained((v) => !v)}
+              />
+            ) : null
+          }
         />
       </div>
 
       {/*
-        Collapsible, because the two things in this panel compete for the same
-        vertical space and both matter. Pinned open it takes up to 160px — more
-        than a third of the listing on a laptop — and a student reading the code
-        cannot get it back. Collapsed it is one line that still names the step, so
-        nothing is more than a click away and the listing gets the room.
-      */}
-      <div className="shrink-0 border-t border-border/80 bg-surface-raised/70">
-        {anchor ? (
-          <>
-            <button
-              type="button"
-              onClick={() => setExplained((v) => !v)}
-              aria-expanded={explained}
-              className="flex w-full items-center gap-2 px-4 py-2 text-left transition-colors hover:bg-surface-inset/40"
-            >
-              <Code2 className="size-3 shrink-0 text-accent" />
-              <span className="text-[11px] text-text-muted">line</span>
-              <span className="font-mono text-[11px] font-bold text-accent-hover tabular-nums">
-                {range?.start ?? '?'}
-              </span>
-              <span className="text-slate-700">·</span>
-              <span className="truncate font-mono text-[11px] text-text-muted">{anchor}</span>
-              <ChevronUp
-                className={[
-                  'ml-auto size-3.5 shrink-0 text-text-subtle transition-transform duration-200',
-                  explained ? '' : 'rotate-180',
-                ].join(' ')}
-              />
-            </button>
+        What is left at the bottom of the panel.
 
-            {/*
-              `data-anchor` and `data-line` are the testable assertions: the *line
-              number* legitimately differs per language, but the anchor name must
-              not, because it names the step rather than the position. They stay
-              on the wrapper rather than the header so they exist whether or not
-              the explanation is expanded — a collapsed panel must not make the
-              e2e suite blind.
-            */}
-            <div
-              data-anchor={anchor}
-              data-line={range?.start ?? undefined}
-              data-explained={explained ? 'true' : 'false'}
-              className={explained ? 'px-4 pb-3' : 'hidden'}
-            >
-              {note ? (
-                <p className="text-[13px] leading-relaxed text-text">
-                  <Em text={note} />
-                </p>
-              ) : (
-                <p className="text-[13px] text-text-subtle">No explanation for this step yet.</p>
-              )}
-            </div>
-          </>
-        ) : (
-          <div className="flex items-center gap-2 px-4 py-3 text-[13px] text-text-subtle">
-            <Info className="size-3.5 shrink-0" />
-            Press play — the line being executed is highlighted here in all four languages.
-          </div>
-        )}
-      </div>
+        The explanation used to live here, pinned below the listing, and took up to
+        160px — more than a third of the listing on a laptop. It now renders
+        *inside* the listing, directly beneath the line it explains (`inlineNote`
+        above), which returns all of that to the code.
+
+        So the only thing left down here is the state this panel is in when there is
+        no anchor yet, which is the state a student is in for the second between
+        pressing play and the first frame arriving. Anything more would be
+        permanent furniture occupying the bottom of a column whose job is the code.
+      */}
+      {!anchor ? (
+        <div className="flex shrink-0 items-center gap-2 border-t border-border/80 bg-surface-raised/70 px-4 py-3 text-[13px] text-text-subtle">
+          <Info className="size-3.5 shrink-0" />
+          Press play — the line being executed is highlighted here in all four languages.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * The per-anchor explanation, inline beneath the line it explains.
+ *
+ * ## Why inline rather than pinned below the listing
+ *
+ * The product's claim is that the animation and the code are the same program, and
+ * the note is what turns that from a caption into something you can verify: it says
+ * what the *line* is for. Pinned at the bottom of the panel it was 150px from the
+ * line it described, so the reader had to hold both in their head and re-match them
+ * every step — which is precisely the work the layout was supposed to be doing for
+ * them. Attached to the line, the sentence and the line are one object.
+ *
+ * It is not a duplicate of the narration, and worth being precise about why: the
+ * narration is `frame.note` and this is `lesson.notes[lang][anchor]`. One is per
+ * *step*, the other per *code region*. At any given step they describe the same
+ * moment and often say much the same thing — which is the redundancy being
+ * collapsed — but they are different lifetimes, so both are kept.
+ *
+ * ## `data-anchor` and `data-line` are contracts, not instrumentation
+ *
+ * The e2e suite asserts that the highlighted line is the *same step* in all four
+ * languages, and it does that by comparing `data-anchor` across a language switch.
+ * The line number legitimately differs per language; the anchor name must not,
+ * because it names the step rather than the position. So both attributes have to
+ * exist whether or not the note is expanded — a collapsed note must not make the
+ * suite blind. `data-explained` is what tells a test which state it is in.
+ */
+function InlineNote({
+  anchor,
+  note,
+  line,
+  explained,
+  onToggle,
+}: {
+  anchor: string;
+  note: string | null;
+  line: number;
+  explained: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div
+      data-anchor={anchor}
+      data-line={line}
+      data-explained={explained ? 'true' : 'false'}
+      /*
+        `whitespace-normal` and a definite `w-[56ch]`, and both are load-bearing.
+
+        This sits inside a `<pre>`, which sets `white-space: pre` and is sized
+        `min-w-max`. Two things go wrong at once if the note overrides neither: it
+        inherits `pre`, so its prose never wraps; and as a block in a max-content
+        parent, its own max-content *is* its unwrapped length, so it widens the whole
+        listing. Measured before this fix: the note occupied 1312px, its full text on
+        one line, inside a pre already 1563px wide.
+
+        A definite width fixes the second: the max-content of a box with a definite
+        width is that width, so the note contributes at most 56ch and the code, which
+        is longer in every listing that scrolls horizontally, keeps deciding the
+        listing's width. Where the code is shorter than 56ch the pre grows to fit the
+        note, which is right: there is room for it and nothing is cut off.
+
+        `border-l-2 border-accent/40` sits in the listing's gutter, where the active
+        line's own accent bar is, so the note reads as belonging to the highlighted
+        range rather than as an unrelated block nearby.
+      */
+      className="my-1.5 w-[56ch] max-w-full border-l-2 border-accent/40 pb-1 pl-3 font-sans whitespace-normal"
+    >
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={explained}
+        className="flex w-full items-center gap-1.5 rounded text-left transition-colors hover:text-text"
+      >
+        <Code2 className="size-3 shrink-0 text-accent" />
+        <span className="text-[10.5px] text-text-subtle">line</span>
+        <span className="font-mono text-[10.5px] font-bold text-accent-hover tabular-nums">
+          {line}
+        </span>
+        <span className="text-text-faint">·</span>
+        <span className="truncate font-mono text-[10.5px] text-text-muted">{anchor}</span>
+        <ChevronUp
+          className={[
+            'ml-auto size-3 shrink-0 text-text-subtle transition-transform duration-200',
+            explained ? '' : 'rotate-180',
+          ].join(' ')}
+        />
+      </button>
+
+      {/*
+        Collapsed to a single clamped line rather than to nothing.
+
+        The notes are long — several sentences for the meatier anchors — so an
+        expanded note inline would push the rest of the listing down by more than a
+        screen and make the panel unusable while reading the code. Clamping to two
+        lines keeps the point visible and puts the rest one click away.
+      */}
+      {note ? (
+        <p
+          className={[
+            'mt-1 text-[12.5px] leading-relaxed text-text',
+            explained ? '' : 'line-clamp-2',
+          ].join(' ')}
+        >
+          <Em text={note} />
+        </p>
+      ) : (
+        <p className="mt-1 text-[12.5px] text-text-subtle">No explanation for this step yet.</p>
+      )}
     </div>
   );
 }
