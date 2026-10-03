@@ -42,6 +42,17 @@ export function ArticlePage({
 
   const position = ARTICLE_LIST.findIndex((a) => a.slug === slug);
   const next = ARTICLE_LIST[position + 1];
+  /*
+   * Backwards, too.
+   *
+   * "Next" alone made the section a corridor: every article pointed forward, so the
+   * only way back to something you skipped was the browser. With nineteen articles
+   * and a hand-ordered list that is a real cost, and the `previous` link is four
+   * lines. `position === -1` cannot happen — an unknown slug has already 404'd above
+   * — but `ARTICLE_LIST[position - 1]` on -1 would be `undefined` anyway, which is
+   * why this needs no guard of its own.
+   */
+  const previous = ARTICLE_LIST[position - 1];
   const algo = article.algoId ? CATALOG_BY_ID[article.algoId] : undefined;
 
   const toc = article.body.filter((b) => b.kind === 'h2');
@@ -126,29 +137,83 @@ export function ArticlePage({
               ) : null}
             </header>
 
+            {/*
+                Tags, rendered as plain text.
+
+                They are the command palette's search vocabulary, so showing them here
+                tells the reader something true and useful — these words will find this
+                article in ⌘K — rather than offering navigation to a tag index that does
+                not exist.
+              */}
+            {article.tags.length > 0 ? (
+              <ul className="mt-3 flex flex-wrap gap-x-2 gap-y-1">
+                {article.tags.map((tag) => (
+                  <li key={tag} className="text-[11px] text-text-subtle/90">
+                    {tag}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
             <div className="rule-fade mb-6" />
 
-            <ArticleBody blocks={article.body} />
+            <ArticleBody blocks={article.body} onNavigate={onNavigate} />
 
-            {next ? (
-              <a
-                href={`/learn/${next.slug}`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  onNavigate(`/learn/${next.slug}`);
-                }}
-                className="stagger group mt-12 flex items-center gap-3 rounded-xl border border-border/80 bg-surface-raised/40 p-4 transition-all duration-200 hover:border-accent/50 hover:bg-surface-raised/70"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[10px] font-semibold tracking-wide text-text-subtle uppercase">
-                    Next
-                  </span>
-                  <span className="block truncate text-[14px] font-semibold text-text-strong">
-                    {next.title}
-                  </span>
-                </span>
-                <ArrowRight className="size-4 shrink-0 text-text-subtle transition-transform duration-200 group-hover:translate-x-0.5" />
-              </a>
+            {/*
+              Previous and next, in one row.
+
+              Two links rather than a single one, in the same order as
+              `ARTICLE_LIST`, because that list *is* the reading order and a lone
+              "next" quietly contradicts it. Both are `<a>` with a real `href` and an
+              intercepted click, so the current URL is always shareable.
+            */}
+            {previous || next ? (
+              <nav aria-label="Other guides" className="mt-12 grid gap-3 sm:grid-cols-2">
+                {previous ? (
+                  <a
+                    href={`/learn/${previous.slug}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onNavigate(`/learn/${previous.slug}`);
+                    }}
+                    className="stagger group flex items-center gap-3 rounded-xl border border-border/80 bg-surface-raised/40 p-4 transition-all duration-200 hover:border-accent/50 hover:bg-surface-raised/70"
+                  >
+                    <ChevronLeft className="size-4 shrink-0 text-text-subtle transition-transform duration-200 group-hover:-translate-x-0.5" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[10px] font-semibold tracking-wide text-text-subtle uppercase">
+                        Previous
+                      </span>
+                      <span className="block truncate text-[14px] font-semibold text-text-strong">
+                        {previous.title}
+                      </span>
+                    </span>
+                  </a>
+                ) : (
+                  // Keeps the "Next" card on the right on the first article, rather
+                  // than jumping to the left column for no reason.
+                  <span aria-hidden="true" />
+                )}
+                {next ? (
+                  <a
+                    href={`/learn/${next.slug}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onNavigate(`/learn/${next.slug}`);
+                    }}
+                    className="stagger group flex items-center gap-3 rounded-xl border border-border/80 bg-surface-raised/40 p-4 text-right transition-all duration-200 hover:border-accent/50 hover:bg-surface-raised/70"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[10px] font-semibold tracking-wide text-text-subtle uppercase">
+                        Next
+                      </span>
+                      <span className="block truncate text-[14px] font-semibold text-text-strong">
+                        {next.title}
+                      </span>
+                    </span>
+                    <ArrowRight className="size-4 shrink-0 text-text-subtle transition-transform duration-200 group-hover:translate-x-0.5" />
+                  </a>
+                ) : null}
+              </nav>
             ) : null}
           </article>
 

@@ -130,4 +130,115 @@ describe('inline code', () => {
     // class names too and passes for the wrong reason.
     expect(out.match(/>([^<]*)</g)?.filter((s) => s === '>x<')).toHaveLength(3);
   });
+
+  it('leaves a bracket that is not a link completely alone', () => {
+    /*
+     * The regression this whole construct had to avoid.
+     *
+     * Almost every article about arrays is written in `a[mid]`, `a[low..high-1]` and
+     * `[low, high)`. A rule that treated any `[` as the start of markup would have
+     * eaten those brackets — or refused to render the emphasis around them, which is
+     * worse and much harder to spot. Recognition requires the complete `](…)`, so an
+     * index expression is just text.
+     */
+    const out = html('`a[mid]` and `a[low..high-1]`, and the range `[low, high)`');
+    expect(out).not.toContain('<a ');
+    expect(out.match(/<code/g)).toHaveLength(3);
+    expect(out).not.toContain('`');
+  });
+
+  it('consumes the brackets of an index expression rather than leaving them', () => {
+    const out = html('`a[mid]`');
+    expect(out).toContain('>a[mid]</code>');
+    expect(out).not.toContain('`');
+  });
+
+  it('does not treat ]( inside a code span as a link', () => {
+    // `](` is literal inside a code span, as in every Markdown dialect:
+    // `` `values[i](x)` `` is an expression, not a link.
+    //
+    // The second assertion is the one that matters. Recognising-and-refusing is only
+    // half the behaviour; if refusing also *split* the run, the code span would
+    // render as two adjacent boxes with a gap, which is a visible artefact caused by
+    // a string with nothing wrong with it.
+    const out = html('call `values[i](x)` twice');
+    expect(out).not.toContain('<a ');
+    expect(out.match(/<code/g)).toHaveLength(1);
+    expect(out).toContain('>values[i](x)</code>');
+  });
+});
+
+describe('inline links', () => {
+  it('renders a same-site link as a real anchor', () => {
+    // A real `href`, not a click handler: it has to survive being copied out of the
+    // page, middle-clicked and opened in a new tab.
+    const out = html('see the [sorting landscape](/learn/sorting-landscape) next');
+    expect(out).toContain('href="/learn/sorting-landscape"');
+    expect(out).toContain('>sorting landscape</a>');
+    // And the markup must be *consumed* — the original bug was brackets and parens
+    // rendered as literal text, which reads as a broken build.
+    expect(out).not.toContain('[');
+    expect(out).not.toContain('](');
+  });
+
+  it('renders emphasis inside a link label', () => {
+    const out = html('read [**the sorting landscape**](/learn/sorting-landscape)');
+    expect(out).toContain('<strong');
+    expect(out).toContain('>the sorting landscape</strong></a>');
+  });
+
+  it('keeps two links with the same label but different targets', () => {
+    // Content-only keys would collide here and React would drop one of the two
+    // anchors — the same duplicate-key trap as `**` and `` ` ``.
+    const out = html('[one](/learn/binary-search) and [one](/learn/hash-tables)');
+    expect(out.match(/<a /g)).toHaveLength(2);
+    expect(out).toContain('href="/learn/binary-search"');
+    expect(out).toContain('href="/learn/hash-tables"');
+  });
+
+  it('handles a link, emphasis and code in the same sentence', () => {
+    const out = html('the **worst case** is `O(n²)` — see [greedy](/learn/greedy)');
+    expect(out).toContain('<strong');
+    expect(out).toContain('<code');
+    expect(out).toContain('href="/learn/greedy"');
+    expect(out).not.toContain('**');
+    expect(out).not.toContain('`');
+  });
+
+  it('leaves an unclosed link as text rather than guessing at the intent', () => {
+    // A missing paren is a typo. Rendering a plausible-looking broken link hides it;
+    // leaving the characters visible hands the mistake back to whoever can fix it.
+    expect(html('[sorting landscape](/learn/sorting-landscape')).toBe(
+      '[sorting landscape](/learn/sorting-landscape',
+    );
+    expect(html('[sorting landscape /learn/sorting-landscape)')).not.toContain('<a ');
+  });
+
+  it('refuses an href that is not a path on this site', () => {
+    // The one piece of prose that is not inert. Content is authored in-repo today, so
+    // this is defence for a future rather than for a live bug — but it is cheap, and
+    // it is what keeps "there is nothing here to sanitise" true rather than merely
+    // currently true.
+    for (const href of [
+      'javascript:alert(1)',
+      'https://example.com/x',
+      '//example.com',
+      'learn/x',
+    ]) {
+      const out = html(`click [here](${href})`);
+      expect(out, href).not.toContain('<a ');
+      expect(out, href).toContain(href); // visible, so the mistake is findable
+    }
+  });
+
+  it('intercepts the click only when a navigation handler is given', () => {
+    const withNav = renderToStaticMarkup(
+      <Em text="[next](/learn/bfs-and-dfs)" onNavigate={() => undefined} />,
+    );
+    // `renderToStaticMarkup` cannot exercise the handler, so what is asserted here is
+    // that supplying one does not change the markup — the href is still there either
+    // way, which is what makes a shared link work.
+    expect(withNav).toContain('href="/learn/bfs-and-dfs"');
+    expect(html('plain')).toBe('plain');
+  });
 });

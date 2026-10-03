@@ -1,5 +1,9 @@
 import { BookOpen, Clock, Sparkles } from 'lucide-react';
-import { ARTICLE_CATEGORY_LABEL, articlesByCategory } from '../core/learn/index.ts';
+import {
+  ARTICLE_CATEGORY_LABEL,
+  articleHasStepper,
+  articlesByCategory,
+} from '../core/learn/index.ts';
 import { cn } from '../lib/utils.ts';
 import { CommandPalette, useCommandPalette } from './CommandPalette.tsx';
 import { PageBody, PageShell } from './PageShell.tsx';
@@ -108,11 +112,25 @@ export function LearnIndex({
                         <Clock className="size-3" />
                         {a.readMinutes} min
                       </span>
-                      {a.algoId ? (
+                      {articleHasStepper(a) ? (
                         <span className="rounded bg-accent/12 px-1.5 py-0.5 text-[9.5px] font-semibold text-accent">
                           has a stepper
                         </span>
                       ) : null}
+                      {/*
+                        Tags, on the card rather than only in the article header.
+
+                        They were already in the data and already in the command
+                        palette's search vocabulary, so they were free vocabulary that
+                        nothing on screen ever showed. Three, because the full list is
+                        longer than the useful part and a wall of pills makes every card
+                        the same shape. They are still not links: there is no tag index
+                        page, and a pill that looks clickable and is not is worse than
+                        no pill.
+                      */}
+                      <span className="min-w-0 flex-1 truncate text-right text-[10px] text-text-subtle/80">
+                        {a.tags.slice(0, 3).join(' · ')}
+                      </span>
                     </div>
                   </a>
                 ))}

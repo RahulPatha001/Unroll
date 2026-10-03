@@ -29,6 +29,47 @@ function stepperBlocks(a: Article): Extract<Block, { kind: 'stepper' }>[] {
   return a.body.filter((b): b is Extract<Block, { kind: 'stepper' }> => b.kind === 'stepper');
 }
 
+/** Every string in an article that `Em` will hand to the inline renderer. */
+function proseStrings(a: Article): string[] {
+  const out: string[] = [];
+  for (const b of a.body) {
+    switch (b.kind) {
+      case 'p':
+      case 'h2':
+      case 'h3':
+      case 'quote':
+        out.push(b.text);
+        break;
+      case 'ul':
+      case 'ol':
+        out.push(...b.items);
+        break;
+      case 'callout':
+        out.push(b.title, b.text);
+        break;
+      case 'code':
+        out.push(b.caption ?? '');
+        break;
+      case 'table':
+        out.push(...b.head, ...b.rows.flat());
+        break;
+      case 'stepper':
+        out.push(b.caption);
+        break;
+    }
+  }
+  return out;
+}
+
+/**
+ * A cross-reference written as `[label](/learn/slug)`.
+ *
+ * Matched on the raw string rather than on rendered output, because "does this point
+ * at a real article" is a question about data and the data is where the answer
+ * lives — see the note at the top of this file.
+ */
+const CROSS_REFERENCE = /\]\(\/learn\/([a-z0-9-]+)\)/g;
+
 describe('articles', () => {
   it('finds the articles (a silent zero would make every check below vacuous)', () => {
     expect(ARTICLE_LIST.length).toBeGreaterThan(0);
@@ -85,6 +126,79 @@ describe('articles', () => {
       if (a.algoId && !CATALOG_BY_ID[a.algoId]) problems.push(`${a.slug}: algoId "${a.algoId}"`);
     }
     expect(problems).toEqual([]);
+  });
+
+  it('cross-references only articles that exist', () => {
+    /*
+     * The one check in this file that guards the *other* articles.
+     *
+     * A `stepper` naming a dead preset renders a graceful fallback, which is why the
+     * preset check above exists. A cross-reference naming a renamed article has no
+     * fallback at all: the link renders, it goes to a 404, and the only symptom is a
+     * reader who clicked "see also" and found nothing. Which is exactly what happened
+     * once already — `sorting.ts` pointed at `/learn/sorting-landscape` before the
+     * inline renderer understood links, and nothing noticed for a while because the
+     * link was not even a link yet.
+     */
+    const problems: string[] = [];
+    for (const a of ARTICLE_LIST) {
+      for (const text of proseStrings(a)) {
+        CROSS_REFERENCE.lastIndex = 0;
+        let m = CROSS_REFERENCE.exec(text);
+        while (m !== null) {
+          const target = m[1];
+          if (target !== undefined && target !== a.slug && !getArticle(target)) {
+            problems.push(`${a.slug}: links to /learn/${target}, which is not an article`);
+          }
+          m = CROSS_REFERENCE.exec(text);
+        }
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it('every prose string has balanced inline markers', () => {
+    /*
+     * The one content rule here that is about *rendering* rather than references.
+     *
+     * `Em` is all-or-nothing by design: an unpaired `**` makes it emit the whole
+     * string verbatim, so one stray asterisk turns a paragraph into visible markup.
+     * That is the right behaviour for a typo — it keeps the mistake visible to
+     * whoever can fix it — and the wrong behaviour as something a reader should have
+     * to look at. So it is caught at build time instead.
+     *
+     * Two articles shipped with literal backticks on screen before `Em` existed, and
+     * nobody noticed, because prose is rarely read by the person who wrote it.
+     */
+    const unbalanced = (text: string, marker: string): boolean =>
+      text.split(marker).length % 2 === 0;
+
+    const problems: string[] = [];
+    for (const a of ARTICLE_LIST) {
+      for (const text of proseStrings(a)) {
+        if (unbalanced(text, '**')) problems.push(`${a.slug}: odd number of ** in "${text}"`);
+        if (unbalanced(text, '`')) problems.push(`${a.slug}: odd number of backticks in "${text}"`);
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it('has cross-references, or the section is a list of unrelated pages', () => {
+    /*
+     * A guard on the guard, in the same spirit as "at least one article embeds a
+     * stepper". Nineteen articles that never point at each other are nineteen
+     * articles a reader has to navigate between by hand, which is the difference
+     * between a course and a pile.
+     */
+    const linked = ARTICLE_LIST.filter((a) =>
+      proseStrings(a).some((text) => {
+        CROSS_REFERENCE.lastIndex = 0;
+        return CROSS_REFERENCE.test(text);
+      }),
+    );
+    // Half is a floor, not a target — but nothing in this section should be an
+    // island, and a regression that strips the links should be visible here.
+    expect(linked.length).toBeGreaterThanOrEqual(ARTICLE_LIST.length / 2);
   });
 });
 

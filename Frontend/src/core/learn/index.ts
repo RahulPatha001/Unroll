@@ -1,6 +1,18 @@
-import { BINARY_SEARCH, HASH_TABLES } from './articles/foundations.ts';
+import { COMPLEXITY } from './articles/complexity.ts';
+import { BINARY_SEARCH, HASH_TABLES, STRINGS_AS_KEYS } from './articles/foundations.ts';
+import { BFS_AND_DFS, MIN_SPANNING_TREE, SHORTEST_PATHS } from './articles/graphs.ts';
+import { DP_SHAPES, GREEDY } from './articles/greedy.ts';
+import { HEAPS } from './articles/heaps.ts';
+import { POINTER_PROBLEMS } from './articles/linked-lists.ts';
 import { BUBBLE_SORT, SORTING_LANDSCAPE } from './articles/sorting.ts';
-import { DYNAMIC_PROGRAMMING, RECURSION_IS_A_STACK, TWO_POINTERS } from './articles/techniques.ts';
+import { MONOTONIC_STACK } from './articles/stacks.ts';
+import {
+  DIVIDE_AND_CONQUER,
+  DYNAMIC_PROGRAMMING,
+  RECURSION_IS_A_STACK,
+  TWO_POINTERS,
+} from './articles/techniques.ts';
+import { BINARY_SEARCH_TREES } from './articles/trees.ts';
 import type { Article } from './types.ts';
 
 export type { Article, Block } from './types.ts';
@@ -47,14 +59,52 @@ export type { Article, Block } from './types.ts';
  * bubble sort before the sorting landscape, and the techniques articles before
  * the ones that use them.
  */
+/**
+ * Every article, in the order they should be listed.
+ *
+ * Hand-ordered rather than sorted, for the same reason `catalog.ts` is: this is
+ * curriculum order, not alphabetical. Someone opening the Learn tab should meet
+ * bubble sort before the sorting landscape, and the techniques articles before
+ * the ones that use them.
+ *
+ * ## The shape of the order
+ *
+ * Reading top to bottom is roughly a course:
+ *
+ *  1. **Sorting**, because it is the first place the cost of an algorithm becomes
+ *     visible — bubble sort is `O(n²)` in a way you can actually see.
+ *  2. **The general techniques**, because most of what follows is an instance of one
+ *     of them: two pointers, recursion as a stack, divide and conquer, dynamic
+ *     programming, greedy.
+ *  3. **The data-structure-adjacent algorithms**: binary search, hash tables, tries.
+ *  4. **The families that had no article at all**: stacks, linked lists, heaps,
+ *     trees, and the three graph articles.
+ *
+ * The cross-references do the rest of the work. `reading-big-o` is deliberately
+ * filed with the concepts it explains rather than in front of them: it is the one
+ * article here that assumes the reader already has something specific to be confused
+ * about, and opening with it would answer questions nobody has asked yet.
+ */
 export const ARTICLE_LIST: readonly Article[] = [
   BUBBLE_SORT,
   SORTING_LANDSCAPE,
   TWO_POINTERS,
   RECURSION_IS_A_STACK,
+  DIVIDE_AND_CONQUER,
   DYNAMIC_PROGRAMMING,
+  DP_SHAPES,
+  GREEDY,
+  COMPLEXITY,
   BINARY_SEARCH,
   HASH_TABLES,
+  STRINGS_AS_KEYS,
+  MONOTONIC_STACK,
+  POINTER_PROBLEMS,
+  HEAPS,
+  BINARY_SEARCH_TREES,
+  BFS_AND_DFS,
+  SHORTEST_PATHS,
+  MIN_SPANNING_TREE,
 ] as const;
 
 const BY_SLUG: Record<string, Article> = Object.fromEntries(ARTICLE_LIST.map((a) => [a.slug, a]));
@@ -62,6 +112,26 @@ const BY_SLUG: Record<string, Article> = Object.fromEntries(ARTICLE_LIST.map((a)
 /** Look up one article. `undefined` for an unknown slug — the page 404s on it. */
 export function getArticle(slug: string): Article | undefined {
   return BY_SLUG[slug];
+}
+
+/**
+ * Whether an article embeds a live visualisation.
+ *
+ * ## Not the same question as "does it have an `algoId`"
+ *
+ * `algoId` means "this article is about exactly one algorithm, so give the reader a
+ * button into the full visualiser". A `stepper` block means "there is something here
+ * to step through". They only sometimes agree: `sorting-landscape` has three
+ * steppers and no `algoId`, because it is about eight sorts and no single one of them
+ * is the subject.
+ *
+ * The index used to badge cards with `algoId`, labelled "has a stepper" — so it
+ * claimed the opposite of the truth for the technique articles, and stayed silent
+ * about the ones that do have steppers. With the section this size, a badge that
+ * means the wrong thing is worse than no badge.
+ */
+export function articleHasStepper(article: Article): boolean {
+  return article.body.some((b) => b.kind === 'stepper');
 }
 
 /**

@@ -34,11 +34,26 @@ const CALLOUT_TONE = {
   good: { icon: Lightbulb, ring: 'border-success/40', bg: 'bg-success/10', text: 'text-success' },
 } as const;
 
-export function ArticleBody({ blocks }: { blocks: Block[] }) {
+export function ArticleBody({
+  blocks,
+  onNavigate,
+}: {
+  blocks: Block[];
+  /**
+   * Passed to `Em` so an inline `[label](/learn/…)` cross-reference is a router
+   * transition rather than a full document load.
+   *
+   * The anchor carries a real `href` either way — see `Em` — so this only decides
+   * whether the click is intercepted, not whether the link works. Which means the
+   * articles are still fully readable as plain Markdown text if this is ever
+   * dropped, and nothing depends on it for correctness.
+   */
+  onNavigate: (to: string) => void;
+}) {
   return (
     <div className="space-y-4">
       {blocks.map((block) => (
-        <BlockRenderer key={blockKey(block)} block={block} />
+        <BlockRenderer key={blockKey(block)} block={block} onNavigate={onNavigate} />
       ))}
     </div>
   );
@@ -91,12 +106,12 @@ function blockKey(block: Block): string {
   return `${block.kind}:${base}`;
 }
 
-function BlockRenderer({ block }: { block: Block }) {
+function BlockRenderer({ block, onNavigate }: { block: Block; onNavigate: (to: string) => void }) {
   switch (block.kind) {
     case 'p':
       return (
         <p className="measure text-[14.5px] leading-[1.75] text-text-muted">
-          <Em text={block.text} />
+          <Em text={block.text} onNavigate={onNavigate} />
         </p>
       );
 
@@ -133,7 +148,7 @@ function BlockRenderer({ block }: { block: Block }) {
                 className="mt-[9px] size-1.5 shrink-0 rounded-full bg-accent/70"
               />
               <span>
-                <Em text={item} />
+                <Em text={item} onNavigate={onNavigate} />
               </span>
             </li>
           ))}
@@ -152,7 +167,7 @@ function BlockRenderer({ block }: { block: Block }) {
                 {i + 1}
               </span>
               <span>
-                <Em text={item} />
+                <Em text={item} onNavigate={onNavigate} />
               </span>
             </li>
           ))}
@@ -162,7 +177,7 @@ function BlockRenderer({ block }: { block: Block }) {
     case 'quote':
       return (
         <blockquote className="measure border-l-2 border-accent/60 py-1 pl-4 text-[14.5px] leading-[1.7] text-text-muted italic">
-          <Em text={block.text} />
+          <Em text={block.text} onNavigate={onNavigate} />
         </blockquote>
       );
 
@@ -181,7 +196,7 @@ function BlockRenderer({ block }: { block: Block }) {
             </span>
           </div>
           <p className="mt-1.5 text-[13.5px] leading-[1.7] text-text-muted">
-            <Em text={block.text} />
+            <Em text={block.text} onNavigate={onNavigate} />
           </p>
         </aside>
       );
@@ -230,7 +245,7 @@ function BlockRenderer({ block }: { block: Block }) {
                     scope="col"
                     className="px-3 py-2 text-[11px] font-bold tracking-wide text-text-muted uppercase"
                   >
-                    <Em text={h} />
+                    <Em text={h} onNavigate={onNavigate} />
                   </th>
                 ))}
               </tr>
@@ -256,7 +271,7 @@ function BlockRenderer({ block }: { block: Block }) {
                         ci === 0 ? 'font-semibold text-text-strong' : 'font-mono text-[11.5px]',
                       )}
                     >
-                      <Em text={cell} />
+                      <Em text={cell} onNavigate={onNavigate} />
                     </td>
                   ))}
                 </tr>

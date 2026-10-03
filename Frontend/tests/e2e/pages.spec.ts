@@ -327,6 +327,72 @@ test('an unknown article slug is a 404 with a way out, not a blank page', async 
   await noErrors(page);
 });
 
+test('a cross-reference inside an article is a link, not literal Markdown', async ({ page }) => {
+  /*
+   * The regression this exists for, and it is a two-line bug that looks like a typo.
+   *
+   * `sorting.ts` ends with `[sorting landscape](/learn/sorting-landscape)`. The inline
+   * renderer only understood `**strong**` and `` `code` ``, so that rendered as
+   * literal text — brackets and parens and all — and the reader saw Markdown where a
+   * sentence should have been. No test failed: a literal string is a valid string, and
+   * a page full of prose still looks like a page full of prose. It is only visible
+   * once someone goes looking for the link.
+   *
+   * So this asserts the *markup*, not the appearance: a real anchor with a real href,
+   * which is also what makes it shareable and middle-clickable.
+   */
+  await page.goto('/learn/bubble-sort');
+
+  const link = page.getByRole('link', { name: 'sorting landscape' });
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute('href', '/learn/sorting-landscape');
+
+  // The brackets and parens are *consumed*. This is the half that regressed: the
+  // visible text was already correct, because the whole point is that it looked like
+  // prose either way.
+  await expect(page.getByText('[sorting landscape](/learn/sorting-landscape)')).toHaveCount(0);
+
+  // And it is a router transition, not a full document load — the same SPA
+  // navigation every other in-page link on this site does.
+  await link.click();
+  await expect(page).toHaveURL(/\/learn\/sorting-landscape$/);
+  await expect(
+    page.getByRole('heading', { name: 'The eight sorts, side by side', level: 1 }),
+  ).toBeVisible();
+  await noErrors(page);
+});
+
+test('the guides are reachable in both directions', async ({ page }) => {
+  /*
+   * `Next` on its own made the section a corridor: every article pointed forward, so
+   * the only way back to something you had skipped was the browser's. With the
+   * article list hand-ordered as a reading order, a one-directional link contradicts
+   * the thing it is expressing.
+   *
+   * Also asserts the first and last cases, because those are the two that are easy to
+   * write as off-by-one: the first article has no previous, and the last has no next.
+   */
+  await page.goto('/learn/bubble-sort');
+  // The first article: nothing before it, so no back link, and nothing rendered
+  // either.
+  const footer = page.getByRole('navigation', { name: 'Other guides' });
+  await expect(footer.getByRole('link', { name: /Next/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Previous/ })).toHaveCount(0);
+
+  await footer.getByRole('link', { name: /Next/ }).click();
+  await expect(page).toHaveURL(/\/learn\/sorting-landscape$/);
+  // Now both directions exist, and Previous goes back where it came from.
+  await page.getByRole('link', { name: /Previous/ }).click();
+  await expect(page).toHaveURL(/\/learn\/bubble-sort$/);
+
+  // The last article is the symmetric case: a forward link that goes nowhere is a
+  // dead control, so it is not rendered.
+  await page.goto('/learn/minimum-spanning-trees');
+  await expect(page.getByRole('link', { name: /Previous/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Next/ })).toHaveCount(0);
+  await noErrors(page);
+});
+
 test('an unknown path is a 404, not a blank page', async ({ page }) => {
   await page.goto('/definitely/not/a/route');
   await expect(page.getByRole('heading', { name: /does not exist/ })).toBeVisible();

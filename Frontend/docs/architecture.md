@@ -280,8 +280,12 @@ src/
 │   ├── learn/                guide articles as PLAIN DATA (no React, so the
 │   │   ├── types.ts          article + block schema; the `stepper` block is
 │   │   │                     what lets a guide embed its own visualisation
-│   │   ├── articles/         the prose
-│   │   └── learn.test.ts     every algoId / preset / table is checked
+│   │   ├── articles/         the prose, grouped by conversation:
+│   │   │                     sorting · foundations · techniques · greedy ·
+│   │   │                     graphs · trees · heaps · stacks · linked-lists ·
+│   │   │                     complexity
+│   │   ├── index.ts          the registry: order, grouping, labels
+│   │   └── learn.test.ts     every algoId / preset / table / cross-link is checked
 │   └── input/                seeded RNG, input shapes, generators,
 │                             fields.ts (the custom-input parser)
 │
@@ -297,7 +301,9 @@ src/
 │   ├── ArticlePage.tsx       one guide (lazy)
 │   ├── ComparePage.tsx       two algorithms, one input (lazy)
 │   ├── NotFound.tsx          the `*` route
-│   ├── CommandPalette.tsx    ⌘K over algorithms AND guides
+│   ├── CommandPalette.tsx    ⌘K shortcut + lazy wrapper (see below)
+│   ├── CommandPaletteDialog.tsx  the dialog itself — lazy, because it reaches
+│   │                         ARTICLE_LIST and therefore all the prose
 │   └── library.ts            favourites + recently viewed (localStorage)
 │
 ├── features/                 ← everything that knows about React
@@ -845,8 +851,8 @@ and inert.
 
 `core/learn/` holds article prose as **plain data** — no React, no DOM — and
 `features/learn/` renders it. The split is not tidiness; it is what lets
-`learn.test.ts` check every article's `algoId`, every `stepper` preset and every
-table's shape in plain Node, with no DOM.
+`learn.test.ts` check every article's `algoId`, every `stepper` preset, every table's
+shape and every cross-reference in plain Node, with no DOM.
 
 That test earns its keep because `EmbeddedStepper` *degrades gracefully*. A chunk
 that fails to load renders an inline note plus a direct link to the full
@@ -855,7 +861,17 @@ the same tolerance that makes it safe in production also hides a stale preset id
 from CI. So the references are checked from the data side, where "does this preset
 exist" is a plain lookup.
 
-Three decisions worth recording:
+**Nineteen articles**, ordered as a course rather than a catalogue: sorting first
+because it is where an algorithm's cost becomes visible, then the general techniques
+(two pointers, recursion, divide and conquer, DP, greedy), then the
+data-structure-adjacent algorithms (binary search, hashing, tries), then the families
+that had nothing at all — stacks, linked lists, heaps, trees and three graph articles.
+Articles are grouped into files **by conversation, not one per file**, so that
+"what should I use" and the question that motivates it live together; `greedy.ts`
+holds greedy and the DP state shapes for exactly that reason, since the two are the
+boundary and splitting them hides it.
+
+Four decisions worth recording:
 
 - **Blocks, not Markdown.** The `stepper` block is the reason. A paragraph saying
   "watch the invariant break" next to a stepper you can drag is the thing a static
@@ -871,6 +887,13 @@ Three decisions worth recording:
   it were possible an article's stepper would fight the main player over `Space` and
   `Escape`. So it is deliberately a small, self-contained, read-only player: local
   state, no store, no URL, no global shortcuts.
+- **The index badges `hasStepper` from the body, not from `algoId`.** Those are
+  different questions: `algoId` means "this article is about exactly one algorithm, so
+  give the reader a button into the visualiser", while a `stepper` block means "there
+  is something here to step through". They only sometimes agree — `sorting-landscape`
+  has three steppers and no `algoId`, because it is about eight sorts and none of them
+  individually is the subject. The badge used to read `algoId` and claim the opposite
+  of the truth for every technique article, which is worse than no badge.
 
 Compare mode makes the same trade for the same reason — two traces in local state,
 one shared transport — with one honest constraint it surfaces rather than hides: the
@@ -883,7 +906,8 @@ than one that admits its limits.
 
 ## Inline markup
 
-`lib/richText.tsx` renders `**strong**` and `` `code` `` and nothing else.
+`lib/richText.tsx` renders `**strong**`, `` `code` `` and `[label](/href)`, and
+nothing else.
 
 It is all-or-nothing on purpose: if either marker is unpaired anywhere in the
 string, the **whole** string is emitted verbatim. Half-applying would produce a
@@ -897,6 +921,65 @@ while, which is the same failure mode as the 28 narration notes that shipped wit
 visible `**` before this module existed: prose is rarely read by the person who
 wrote it, so a rendering defect in prose is invisible to review. The article
 baselines are what caught it this time.
+
+There is now a third construct, `[label](/learn/some-article)`, and it was added for
+the same reason: `sorting.ts` already ended with a cross-reference written as
+Markdown link syntax, and it rendered **as literal Markdown** — brackets, parens and
+all — because only the two inline markers above were understood. Nothing failed. A
+literal string is a valid string, and a page of prose still looks like a page of
+prose; the only symptom was a reader clicking nothing.
+
+A URL is the one piece of prose that is not inert, so the new construct has two rules:
+
+- **A link is markup only if well formed.** `[text](/learn/typo` has no closing
+  paren, so it stays visible as the typo it is. Guessing would produce a broken link
+  that looks deliberate.
+- **The href must be a path on this site** — `startsWith('/')` and not
+  `startsWith('//')`. Anything else is emitted verbatim instead of becoming an anchor.
+  There is nothing to sanitise *today*, because every string is authored in-repo, and
+  that line is what keeps it true the day one is not.
+
+What it deliberately does not touch: `a[mid]` is not a link and `[low, high)` is not a
+link. Recognition needs the complete `](…)` triple, so the bracket-heavy prose every
+article about arrays is full of renders exactly as before — a rule that claimed every
+`[` as markup would have broken the binary search guide to add links to the sorting
+one. `learn.test.ts` now checks that every `/learn/…` in every article resolves, which
+is the check whose absence let the original rot.
+
+---
+
+## The prose is not in the entry chunk
+
+Nineteen articles is 52.6 kB gzip of text, and it has to stay out of the entry chunk —
+not because it is large in the abstract but because every visitor pays for the entry
+chunk and most of them never open the guides.
+
+Getting there took two passes, and the second one is the interesting one:
+
+- **`LearnIndex` is lazy.** This was the first fix, and `routes.tsx` carries a long
+  note on it: the page looks like a list of links, but it imports the article
+  registry, which statically imports every article.
+- **`CommandPalette` is lazy, and the wrapper is separated from the dialog.** The
+  palette searches articles, so it needs the same registry — and `Browse.tsx`, which
+  is eager because it is the home page, renders the palette. So the leak reopened,
+  quietly, when ⌘K gained article search. Growing the section from seven articles to
+  nineteen turned a hidden cost into a measured one: **74.9 kB → 113.7 kB gzip on the
+  entry chunk, 235.7 kB initial against a 200 kB budget.**
+
+`CommandPalette.tsx` is now the shortcut hook plus a `lazy()` wrapper that gates on
+`open` before rendering; `CommandPaletteDialog.tsx` is the dialog. The gate matters:
+the dynamic import inside `lazy()` fires on first *render*, so an always-mounted
+Suspense boundary would fetch the chunk on every page and reproduce the original bug
+one level down.
+
+What it costs is one chunk fetch on the first ⌘K of a session — which happens to be the
+same chunk `/learn` loads — in exchange for not charging everyone for nineteen
+articles. The alternative, splitting article metadata from article bodies, duplicates
+every title and dek in the repository to save one keystroke. Neither `learn.test.ts`
+nor `boundary.test.ts` can catch this class of bug: every import involved is
+legitimate on its own, and only the *timing* is wrong. `tools/budget.mjs` is the only
+thing that sees it, which is the argument for keeping it.
+
 
 ---
 

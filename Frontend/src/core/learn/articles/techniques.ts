@@ -5,8 +5,13 @@ import type { Article } from '../types.ts';
  *
  * These are the ideas that cut across categories — the ones a student meets in
  * eight different chapters of a textbook and, without naming them, has to
- * re-invent each time. Filed under `concepts` rather than any of the 14
- * algorithm categories, because filing them would misfile them.
+ * re-invent each time. Three of them are filed under `concepts` rather than any of
+ * the 14 algorithm categories, because filing them would misfile them.
+ *
+ * `DIVIDE_AND_CONQUER` is the exception: it is filed under `recursion`, because
+ * divide and conquer and recursion are not two ideas that happen to be related —
+ * the shape *is* the recursion, and an article that separates them hides the one
+ * fact that decides whether the algorithm works.
  */
 
 export const TWO_POINTERS: Article = {
@@ -367,6 +372,181 @@ export const DYNAMIC_PROGRAMMING: Article = {
     {
       kind: 'p',
       text: 'And one counter-signal worth keeping: if your recurrence needs a *set* of states rather than a single number, or if deciding the order to fill the table is genuinely hard, the answer is usually greedy or graph search instead. Not every hard problem is a DP problem, and forcing it produces tables that are correct and useless.',
+    },
+  ],
+};
+
+/**
+ * Divide and conquer.
+ *
+ * Filed under `recursion` rather than `concepts` for the obvious reason: this is the
+ * one place where the two subjects are the same subject. It is also the article that
+ * has to answer a question the recursion article deliberately leaves open — recursion
+ * is the *mechanism*, this is the *shape*, and the shape is what determines whether
+ * your program takes a second or an eternity.
+ */
+export const DIVIDE_AND_CONQUER: Article = {
+  slug: 'divide-and-conquer',
+  title: 'Divide and conquer: what the halving is for',
+  dek: 'The same three steps produce n log n or 2ⁿ, and the difference is entirely in the size of the sub-problem.',
+  category: 'recursion',
+  tags: ['divide and conquer', 'merge sort', 'quicksort', 'master theorem', 'combination step'],
+  readMinutes: 11,
+  algoId: 'merge-sort',
+  body: [
+    {
+      kind: 'p',
+      text: 'Divide and conquer is a shape, not a technique for avoiding loops. Three steps, always the same three: **divide** the problem into smaller independent pieces, **conquer** each piece recursively, and **combine** the answers into one.',
+    },
+    {
+      kind: 'p',
+      text: 'Almost everyone gets the first two right and then forgets the third exists — because "solve the two halves" is where the *code* is, while "put the halves back together" is where the *complexity* is.',
+    },
+
+    { kind: 'h2', text: 'The three steps, and the one that is optional' },
+    {
+      kind: 'p',
+      text: 'Work through merge sort as the template:',
+    },
+    {
+      kind: 'ol',
+      items: [
+        '**Divide:** split the array at `⌊n/2⌋`. Two problems of half the size.',
+        '**Conquer:** sort each half. Both calls are the same function on a smaller input.',
+        '**Combine:** merge the two sorted halves into one, with a single linear scan.',
+      ],
+    },
+    {
+      kind: 'p',
+      text: 'The merge is the interesting step and it is *not* free. It is `O(n)`, it needs somewhere to put the output, and it is the reason merge sort is `O(n)` in space while quicksort is `O(log n)`. An algorithm that divides and conquers but never combines is legal — [binary search](/learn/binary-search) is exactly that — and the combine step is simply absent.',
+    },
+    {
+      kind: 'stepper',
+      algoId: 'merge-sort',
+      caption:
+        'Merge sort. Count the widths of the runs being merged at each level: n, then n again, then n again — for log₂(n) levels.',
+      preset: 'random',
+    },
+    {
+      kind: 'callout',
+      tone: 'note',
+      title: 'The combine step is why a bottom-up version exists',
+      text: 'Since each merge is `O(n)` and there are `log₂ n` levels, the whole sort is `n · log₂ n`. You can flip it around: merge *passes* of pairwise runs, each pass costing `O(n)`, doubling the run length each time. Same work, but with no recursion at all — which is what a bottom-up merge sort actually is, and why it is the better choice when the data is on disk and the recursion stack is a real cost.',
+    },
+
+    { kind: 'h2', text: 'Halving by two versus halving by one' },
+    {
+      kind: 'p',
+      text: 'This is the part worth the whole article, and it is one comparison of two algorithms that look structurally identical.',
+    },
+    {
+      kind: 'table',
+      head: ['', 'Merge sort', 'Tower of Hanoi'],
+      rows: [
+        ['Sub-problem', 'sort each half', 'move `n−1` disks to the spare peg'],
+        ['How many', '2', '2'],
+        ['Recurrence', '`T(n) = 2T(n/2) + O(n)`', '`T(n) = 2T(n−1) + O(1)`'],
+        ['Per level', '`n`', '1'],
+        ['Levels', '`log₂ n`', '`n`'],
+        ['Total', '`O(n log n)`', '`O(2ⁿ)`'],
+      ],
+    },
+    {
+      kind: 'stepper',
+      algoId: 'tower-of-hanoi',
+      caption:
+        'Five disks: 31 moves, and a call stack three deep. The stack is tiny and the work is enormous — the two are completely independent.',
+      preset: 'five-disks',
+    },
+    {
+      kind: 'p',
+      text: 'Both recurse twice. Neither has a loop. But merge sort halves the problem, so the recursion tree is wide and shallow and there are only `log₂ n` levels — and Hanoi subtracts one from the problem, so the tree is narrow and deep with `n` levels, and the branching compounds.',
+    },
+    {
+      kind: 'p',
+      text: 'The general form is `T(n) = a·T(n/b) + O(nᵈ)`, and the three terms say everything: `a` sub-problems, each a `1/b`-th the size, plus work done at this level. What matters is not whether `a > 1` but **how fast the size shrinks**. Two sub-problems of half the size is the good case. Two sub-problems one unit smaller is the case where the algorithm does not work at all.',
+    },
+    {
+      kind: 'callout',
+      tone: 'warn',
+      title: 'The mistake this catches',
+      text: 'The reflex is "divide and conquer makes things `n log n`". It makes things `n log n` *when the sub-problem is a fraction of the original*. If you have written a recursive algorithm whose sub-problem is `n − 1` and you called it divide and conquer because it splits the work in two, you have built an exponential algorithm with a good name.',
+    },
+
+    { kind: 'h2', text: 'Quicksort: the same shape, worse promises' },
+    {
+      kind: 'p',
+      text: 'Quicksort divides around a **pivot** rather than at the midpoint, which makes it faster in practice and *worse* in theory — and the difference between those two statements is entirely about how the pivot is chosen.',
+    },
+    {
+      kind: 'p',
+      text: 'The partitioning step is [Lomuto](/learn/two-pointers): one scan of the region, everything `≤ pivot` shuffled to the left of a boundary, pivot dropped into the gap, and the boundary returned. That single pass is the combine step, and it is `O(n)` — the same combine cost as merging, for a division that costs nothing.',
+    },
+    {
+      kind: 'stepper',
+      algoId: 'quick-sort',
+      caption:
+        'Quicksort partitioning. The pivot is the only value whose final position is known at the moment the scan ends — everything else is still relative.',
+      preset: 'random',
+    },
+    {
+      kind: 'p',
+      text: 'So the balance of the recursion tree is decided by the pivot, and nothing in the algorithm can guarantee it. The worst case is not exotic: pick the smallest or largest remaining element every time, and every partition splits off exactly one element. An already-sorted array with a fixed pivot does this on every level, giving `n` levels and `O(n²)` comparisons.',
+    },
+    {
+      kind: 'ul',
+      items: [
+        '**Random pivot** turns the bad case into a 1-in-n chance per level — a claim about randomness rather than about the data, which is the only reason it is available at all.',
+        '**Median of three** (first, middle, last) defeats the sorted-input case specifically, for free.',
+        '**Introsort** counts recursion depth and switches to [heapsort](/learn/heaps) past a `2·log n` threshold, giving up the worst case only in the situation where the input is already pathological enough that the constant factor is academic.',
+      ],
+    },
+    {
+      kind: 'p',
+      text: 'And quicksort is not stable — equal elements can be reordered by the partition — which is the one guarantee merge sort gives up nothing to get. If you are sorting by one field while other fields carry meaning, that decides it.',
+    },
+
+    { kind: 'h2', text: 'The degenerate case' },
+    {
+      kind: 'p',
+      text: 'Binary search divides and never combines. Split the range in half, look at one half, and recurse into that half. There is no work at any level except the comparison, and there is nothing to merge — the answer is wherever the range stops containing it.',
+    },
+    {
+      kind: 'p',
+      text: 'It is worth including as a member of the family because it shows what the shape looks like when one step is missing. `T(n) = T(n/2) + O(1)` is `O(log n)` not because the constant is small but because the *only* work is per-level, with `log n` levels and nothing else. Merge sort pays `O(n)` per level and still wins on a big array, because it has to build a sorted result; binary search pays nothing per level, because it only has to find one.',
+    },
+    {
+      kind: 'callout',
+      tone: 'note',
+      title: 'And the one that is neither',
+      text: 'Insertion sort is divide and conquer with the divide step removed: sort a one-element prefix, then insert the next element into it by shifting. That is the entire algorithm, it is `O(n²)` in general and `O(n)` on nearly-sorted input, and it is exactly what hybrid sorts call for their small runs — below about 16 elements, insertion sort beats both merge sort and quicksort because the constant factor is smaller than the overhead of recursing.',
+    },
+
+    { kind: 'h2', text: 'How to tell it apart from dynamic programming' },
+    {
+      kind: 'p',
+      text: 'Both recurse on smaller inputs, so they are easy to confuse. The distinguishing question is **whether the sub-problems overlap**:',
+    },
+    {
+      kind: 'ul',
+      items: [
+        "**Disjoint** — merge sort's halves, quicksort's partitions, binary search's halves. Each element is in exactly one sub-problem, so the recursion tree is a *tree* and memoising anything buys nothing. This is divide and conquer.",
+        '**Overlapping** — naive Fibonacci, where `fib(n−1)` and `fib(n−2)` both need `fib(n−2)`. The recursion is a *DAG* drawn as a tree, and memoising collapses it. This is [dynamic programming](/learn/dynamic-programming).',
+      ],
+    },
+    {
+      kind: 'p',
+      text: 'There is a second difference that catches people: divide and conquer splits by **position or structure** — "the left half", "the sub-tree" — while DP splits by **state** — "the best answer for this amount", "this pair of prefixes". When you find yourself unable to phrase the split, you probably do not have a divide and conquer yet.',
+    },
+    {
+      kind: 'callout',
+      tone: 'good',
+      title: 'If you remember one thing from this page',
+      text: 'Divide and conquer is not a complexity class — it is a shape, and the complexity falls out of how fast the sub-problem shrinks. Halve it and you get `n log n`; subtract one and you get `2ⁿ`. Then do not forget the combine step: that is where the space and the remaining `n` per level live.',
+    },
+    {
+      kind: 'p',
+      text: 'The recursion is the easy half of the story, and [recursion is a stack you can watch](/learn/recursion-is-a-stack) is about that: the machine was doing this bookkeeping invisibly, and these are the algorithms where the shape of the call tree is the thing you actually have to understand.',
     },
   ],
 };

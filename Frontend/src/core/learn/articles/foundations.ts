@@ -161,8 +161,8 @@ export const HASH_TABLES: Article = {
       kind: 'stepper',
       algoId: 'hash-table',
       caption:
-        'Insertion into a hash table. Watch the probe sequence when two keys land in the same bucket.',
-      preset: 'roomy',
+        'Insertion into a hash table — separate chaining, as in this visualiser. Watch a second key land in a slot that already holds one.',
+      preset: 'one-bucket',
     },
 
     { kind: 'h2', text: 'Collisions are not a bug' },
@@ -212,7 +212,11 @@ export const HASH_TABLES: Article = {
     { kind: 'h2', text: 'What O(1) average actually assumes' },
     {
       kind: 'p',
-      text: 'The claim rests on load factor and hash quality together. **Load factor** is the ratio of stored elements to slots; past about 0.7, probing sequences lengthen sharply and the average cost climbs. **Hash quality** is how uniformly keys spread — and this is the part that is a *social* assumption rather than a mathematical one.',
+      text: 'The claim rests on load factor and hash quality together. **Load factor** is the ratio of stored elements to slots; in this visualiser the table doubles when the factor passes **0.75**, and chains get longer as the factor climbs. **Hash quality** is how uniformly keys spread — and this is the part that is a *social* assumption rather than a mathematical one.',
+    },
+    {
+      kind: 'p',
+      text: 'Worth being precise about the growth policy, because it is what turns "worst case `O(n)`" into "average `O(1)`" — the argument is in [how to read O(n log n)](/learn/reading-big-o), and it is short: doubling means the total rehashing work across `n` inserts is `n/2 + n/4 + …`, which is `O(n)`, so the amortised cost per insert is `O(1)`. Any individual insert can still cost `O(n)`, and that is not a contradiction.',
     },
     {
       kind: 'p',
@@ -236,6 +240,133 @@ export const HASH_TABLES: Article = {
     {
       kind: 'p',
       text: 'Which is the summary: a hash table is the right structure when you are doing *lookups* and do not care about order. The moment order becomes a requirement, the tree is the better tool, and the `log n` is the price of that ordering.',
+    },
+    {
+      kind: 'p',
+      text: 'And if the question is not "is this key present?" but "which keys start with this?", the answer is neither a hash table nor a tree — it is a [trie](/learn/strings-as-keys), which shares the work between keys that have prefixes in common.',
+    },
+  ],
+};
+
+/**
+ * Strings as keys.
+ *
+ * Placed here rather than in a file of its own because it is the other half of the
+ * hash-tables article: both answer "is this key present?", they disagree about
+ * everything else, and the disagreement only becomes visible when the query has a
+ * shape — a prefix — rather than being a single value.
+ */
+export const STRINGS_AS_KEYS: Article = {
+  slug: 'strings-as-keys',
+  title: 'Strings as keys: when a hash table loses to a tree',
+  dek: 'Both store words and both find them fast. Only one of them can answer "everything starting with tr".',
+  category: 'tries',
+  tags: ['trie', 'prefix', 'autocomplete', 'alphabet', 'node count'],
+  readMinutes: 9,
+  algoId: 'trie',
+  body: [
+    {
+      kind: 'p',
+      text: 'Ask a hash table "is `train` in this collection?" and it hashes the whole string, probes, and answers. Ask it "what words start with `tr`?" and it has nothing useful to do — the answer is not one key, it is a set of keys, and finding them means walking every entry.',
+    },
+    {
+      kind: 'p',
+      text: 'A trie is built for the second question. It never compares whole strings. It walks them, one character at a time, following edges — and the moment the edge it wants is missing, the answer is known.',
+    },
+
+    { kind: 'h2', text: 'The structure' },
+    {
+      kind: 'p',
+      text: 'One node per **distinct prefix**. The root is the empty prefix; each node has an outgoing edge per character that can follow it, and a flag saying whether a word *ends* here. Inserting a word is a walk; searching is a walk.',
+    },
+    {
+      kind: 'stepper',
+      algoId: 'trie',
+      caption:
+        'Trie insertion. The nodes are shared prefixes, and the flag on a node is the difference between a trie and a plain prefix tree.',
+      preset: 'empty-prefix',
+    },
+    {
+      kind: 'callout',
+      tone: 'note',
+      title: 'The node count is bounded by distinct prefixes, not by word length',
+      text: 'That is the whole sizing story. A trie over a large dictionary is *smaller* than the words it stores, because the prefixes are shared. A trie over four short words is larger, because you have paid for every prefix whether it is used twice or once. So the question is not "is a trie big" but "are my keys sharing prefixes" — and natural language keys share enormously.',
+    },
+
+    { kind: 'h2', text: 'The prefix query' },
+    {
+      kind: 'p',
+      text: 'Search is the same walk, and the miss is the best part of the design.',
+    },
+    {
+      kind: 'stepper',
+      algoId: 'trie',
+      caption:
+        'Searching for the prefix "tr". Walk it, and the walk itself is the answer — the moment an edge is missing, there is no fallback and nothing to scan.',
+      preset: 'prefix-hit',
+    },
+    {
+      kind: 'p',
+      text: '**A missing edge *is* the answer.** There is no "check the rest of the dictionary" step, no alternative location to try, and no second strategy. That is why a prefix query costs `O(prefix length)` and is completely independent of how many words are stored — while a hash table asking the same question costs a full scan of its entries.',
+    },
+    {
+      kind: 'callout',
+      tone: 'warn',
+      title: 'The one case that needs the footnote',
+      text: 'The empty prefix matches everything, and matching it is `O(1)` while *enumerating* the answer is `O(n)`. So "independent of dictionary size" is true of the lookup and false of the listing — and any interface that offers prefix search is really offering a range enumeration, which is the operation that costs.',
+    },
+    {
+      kind: 'p',
+      text: 'Two details show up in the trace and are worth knowing before writing your own. A prefix can be a **path and not a word** — `car` is a prefix of `cargo` without being in the collection — and the distinction is a flag on the node, not a special case in the algorithm. And the node layout matters: this implementation keeps children in a small list and scans it, which is fine for a short alphabet and would not be for a large one; a fixed array indexed by character, or a map per node, are the alternatives the narration names.',
+    },
+
+    { kind: 'h2', text: 'The two, side by side' },
+    {
+      kind: 'table',
+      head: ['Question', 'Hash table', 'Trie'],
+      rows: [
+        ['Is this exact key present?', '`O(1)` average', '`O(L)` in the key length'],
+        ['Which keys start with `tr`?', '`O(n)` — no shortcut', '`O(L + output)`'],
+        ['Which keys are anagrams / sorted order?', 'sort the output', 'not supported'],
+        [
+          'Range or ordered navigation?',
+          'not possible',
+          'walk the edges, though leaves come out unordered',
+        ],
+        ['Space for a dictionary', '`O(n + capacity)`', '`O(distinct prefixes)`'],
+        ['Cost per inserted character', 'hashed once, `O(L)`', 'one node per new prefix'],
+        ['Colisions to handle', 'always', 'never — one edge per character'],
+      ],
+    },
+    {
+      kind: 'p',
+      text: 'Read that table as one sentence: **a hash table is optimised for equality, a trie is optimised for sharing.** If your queries are all equality, hashing wins on space and simplicity. The moment a query has a *shape* — a prefix, a range, "what could follow what" — the structure that shares the work is the one you want.',
+    },
+
+    { kind: 'h2', text: 'When a trie is the right answer' },
+    {
+      kind: 'ul',
+      items: [
+        '**Autocomplete and type-ahead**, which is prefix search with a ranking bolted on — and the ranking is usually where the difficulty actually lives.',
+        '**Longest-prefix matching in a router**, which is a trie walk with the longest match remembered at each step.',
+        '**Spell checkers and word games**, where the real operations are "words starting with this" and "insert one character somewhere", neither of which is a lookup.',
+        '**IP routing tables**, for the same reason: a walk down the bits.',
+        '**Counting prefixes** — "how many stored keys begin with this" — which is a subtree count rather than a search.',
+      ],
+    },
+    {
+      kind: 'p',
+      text: 'And the honest cost, which is not the same as the asymptotic one: a trie has **no worst-case problem at all**, because there are no collisions — but it also has no way to shrink a key. A hash table turns a 40-character string into one integer and one array access. A trie makes 40 array accesses. Hashing wins on a hit; sharing wins on a prefix.',
+    },
+    {
+      kind: 'callout',
+      tone: 'good',
+      title: 'How to choose, in one line',
+      text: 'Are your queries "is this key here?" — use a [hash table](/learn/hash-tables). Do they have a common shape, a prefix or a range? — use a trie. If you need both, the real systems do both: hash the whole key for exact lookup, and keep the sorted key list around for anything shaped.',
+    },
+    {
+      kind: 'p',
+      text: 'Both structures answer the same question with one shared assumption worth stating: **the key has to be usable as an address.** A hash function maps a key to a slot, and an edge in a trie is chosen by a character. Neither can help you if the interesting part of your key is not something you can compute with — which is why "hash the query, then walk" is the shape of every inverted index ever built.',
     },
   ],
 };
