@@ -66,9 +66,9 @@ export const GREEDY: Article = {
     {
       kind: 'ol',
       items: [
-        '**Local safety.** The choice beats every alternative it discards, *given the same state*. Activity selection compares against other activities available now; coin change compares against other coins available now.',
+        '**Local safety.** The choice beats every alternative it discards, **given the same state**. Activity selection compares against other activities available now; coin change compares against other coins available now.',
         '**Reachability.** A state you cannot get to is not an option. If the greedy rule might produce a configuration that the optimal solution could never be in, then "it was locally best" is not enough — you have proved something about an unreachable world. This is the failure mode that separates greedy from DP.',
-        '**A deliberate tie-break.** If two candidates are equally good, which one you take is a decision, not a detail. [Prim and Kruskal](/learn/minimum-spanning-trees) both satisfy local safety and reachability and still disagree about *which* tree they return, purely on tie-breaks.',
+        '**A deliberate tie-break.** If two candidates are equally good, which one you take is a decision, not a detail. [Prim and Kruskal](/learn/minimum-spanning-trees) both satisfy local safety and reachability and still disagree about **which** tree they return, purely on tie-breaks.',
       ],
     },
     {
@@ -90,7 +90,7 @@ export const GREEDY: Article = {
     },
     {
       kind: 'p',
-      text: 'Greedy cannot see that spending the 4 leaves a remainder it cannot make well. Nothing is wrong with the rule locally: 4 *is* the largest coin that fits. The damage is entirely in the future, and there is no amount of local cleverness that prevents it.',
+      text: 'Greedy cannot see that spending the 4 leaves a remainder it cannot make well. Nothing is wrong with the rule locally: 4 **is** the largest coin that fits. The damage is entirely in the future, and there is no amount of local cleverness that prevents it.',
     },
     {
       kind: 'callout',
@@ -173,7 +173,7 @@ export const GREEDY: Article = {
     },
     {
       kind: 'p',
-      text: 'The failure column is the useful one. Greedy and DP are not competitors — they are two answers to the same question, and [coin change](/learn/dp-state-shapes) is answered by either depending on the denominations. The tell is the reachability question: if you cannot say *why committing here was safe*, you do not have a greedy solution, you have a hope for one.',
+      text: 'The failure column is the useful one. Greedy and DP are not competitors — they are two answers to the same question, and [coin change](/learn/dp-state-shapes) is answered by either depending on the denominations. The tell is the reachability question: if you cannot say **why committing here was safe**, you do not have a greedy solution, you have a hope for one.',
     },
     {
       kind: 'p',
@@ -199,7 +199,7 @@ export const DP_SHAPES: Article = {
   body: [
     {
       kind: 'p',
-      text: 'The theory of dynamic programming is two questions and a table, and it is covered in [remember the sub-answer](/learn/dynamic-programming). What theory does not give you is the part where you are actually writing one: what the state *is*, in a form you can index, and which of the four shapes your problem is.',
+      text: 'The theory of dynamic programming is two questions and a table, and it is covered in [remember the sub-answer](/learn/dynamic-programming). What theory does not give you is the part where you are actually writing one: what the state **is**, in a form you can index, and which of the four shapes your problem is.',
     },
     {
       kind: 'p',
@@ -220,19 +220,19 @@ export const DP_SHAPES: Article = {
     },
     {
       kind: 'p',
-      text: 'What the grid makes visible is the *order*. The top row is filled in the order the recursion demanded it — scattered, out of order, with the call stack drawn as a path — while the bottom row fills left to right. Same recurrence, same answer, and the difference in cost is entirely the order the states were visited.',
+      text: 'What the grid makes visible is the **order**. The top row is filled in the order the recursion demanded it — scattered, out of order, with the call stack drawn as a path — while the bottom row fills left to right. Same recurrence, same answer, and the difference in cost is entirely the order the states were visited.',
     },
     {
       kind: 'callout',
       tone: 'note',
       title: 'Count the states, not the work',
-      text: 'This is the only DP shape where the state count is obvious, which is why it is the only one that gets taught first. When the state has two indices the state count is a *product*, and that product is the thing that runs out of memory — a 1,000,000-capacity knapsack with 100 items is a hundred million cells, and the algorithm is "too slow" mostly because nobody checked that product before starting.',
+      text: 'This is the only DP shape where the state count is obvious, which is why it is the only one that gets taught first. When the state has two indices the state count is a **product**, and that product is the thing that runs out of memory — a 1,000,000-capacity knapsack with 100 items is a hundred million cells, and the algorithm is "too slow" mostly because nobody checked that product before starting.',
     },
 
     { kind: 'h2', text: 'Shape two: two indices, one of which is a budget' },
     {
       kind: 'p',
-      text: "Knapsack's state is *items considered, capacity remaining*. Both indices are necessary, and there is a choice about which one you use that decides whether the table is easy to read.",
+      text: "Knapsack's state is **items considered, capacity remaining**. Both indices are necessary, and there is a choice about which one you use that decides whether the table is easy to read.",
     },
     {
       kind: 'stepper',
@@ -243,7 +243,7 @@ export const DP_SHAPES: Article = {
     },
     {
       kind: 'p',
-      text: 'The "capacity remaining" framing is the one worth memorising. Capacity *used* turns the transition into an index-arithmetic puzzle with two index shifts; capacity *remaining* turns it into "spend `w`, and here is the answer for what is left over". One of those you can do in your head.',
+      text: 'The "capacity remaining" framing is the one worth memorising. Capacity **used** turns the transition into an index-arithmetic puzzle with two index shifts; capacity **remaining** turns it into "spend `w`, and here is the answer for what is left over". One of those you can do in your head.',
     },
     {
       kind: 'p',
@@ -257,7 +257,7 @@ export const DP_SHAPES: Article = {
     { kind: 'h3', text: '0/1 versus unbounded is one index' },
     {
       kind: 'p',
-      text: 'Coin change looks like knapsack and is not. The state is the same shape — *denominations considered, amount remaining* — and the table looks nearly identical. The entire difference is which neighbour a cell reads from.',
+      text: 'Coin change looks like knapsack and is not. The state is the same shape — **denominations considered, amount remaining** — and the table looks nearly identical. The entire difference is which neighbour a cell reads from.',
     },
     {
       kind: 'p',
@@ -274,7 +274,7 @@ export const DP_SHAPES: Article = {
       kind: 'callout',
       tone: 'warn',
       title: 'This one index is the whole difference, and getting it backwards is silent',
-      text: 'Point coin change at the row above and you have quietly written 0/1 coin change, which is a different problem with a worse answer and no error message. Point knapsack at its own row and you get an unbounded knapsack that can pick the same item twice — and *that* one will look wrong, because unbounded knapsack genuinely returns more value. One of the two mistakes is detectable by looking at the answer and one is not.',
+      text: 'Point coin change at the row above and you have quietly written 0/1 coin change, which is a different problem with a worse answer and no error message. Point knapsack at its own row and you get an unbounded knapsack that can pick the same item twice — and **that** one will look wrong, because unbounded knapsack genuinely returns more value. One of the two mistakes is detectable by looking at the answer and one is not.',
     },
     {
       kind: 'p',
@@ -284,7 +284,7 @@ export const DP_SHAPES: Article = {
     { kind: 'h2', text: 'Shape three: two sequences' },
     {
       kind: 'p',
-      text: 'When the input is two sequences, the state is a pair of prefixes: *how much of `a`, how much of `b`*. This is where the most useful DP problems live, and where the base cases carry the most information about the problem.',
+      text: 'When the input is two sequences, the state is a pair of prefixes: **how much of `a`, how much of `b`**. This is where the most useful DP problems live, and where the base cases carry the most information about the problem.',
     },
     {
       kind: 'stepper',
@@ -322,7 +322,7 @@ export const DP_SHAPES: Article = {
     { kind: 'h2', text: 'Shape four: an interval' },
     {
       kind: 'p',
-      text: 'When the answer to a problem about a range depends on smaller ranges *overlapping*, the state is a **pair of endpoints** — and that is `O(n²)` states, not `O(n)`. This is the shape people fail to find, and the reason is that they go looking for a one-dimensional state that does not exist.',
+      text: 'When the answer to a problem about a range depends on smaller ranges **overlapping**, the state is a **pair of endpoints** — and that is `O(n²)` states, not `O(n)`. This is the shape people fail to find, and the reason is that they go looking for a one-dimensional state that does not exist.',
     },
     {
       kind: 'stepper',
@@ -333,11 +333,11 @@ export const DP_SHAPES: Article = {
     },
     {
       kind: 'p',
-      text: 'Rod cutting is the gentlest example of the shape: the table is small, the recurrence is two candidates, and the surprising part is visible — cutting the rod *once* is almost never optimal, so the answer is nearly always a sum of many pieces. Which is the general shape of interval problems: **the single decision looks available and is almost always dominated.**',
+      text: 'Rod cutting is the gentlest example of the shape: the table is small, the recurrence is two candidates, and the surprising part is visible — cutting the rod **once** is almost never optimal, so the answer is nearly always a sum of many pieces. Which is the general shape of interval problems: **the single decision looks available and is almost always dominated.**',
     },
     {
       kind: 'p',
-      text: 'The layout choice is worth copying. Rows are the rod length, columns the piece length, which makes the two candidates structurally different — one to the left, one diagonally down — instead of both being in the row above. When you can choose an orientation that makes the candidates *look* different, the table explains itself.',
+      text: 'The layout choice is worth copying. Rows are the rod length, columns the piece length, which makes the two candidates structurally different — one to the left, one diagonally down — instead of both being in the row above. When you can choose an orientation that makes the candidates **look** different, the table explains itself.',
     },
 
     { kind: 'h2', text: 'And one that is not a table at all' },
@@ -354,11 +354,11 @@ export const DP_SHAPES: Article = {
     },
     {
       kind: 'p',
-      text: '`tails[k]` holds the smallest possible last element of an increasing run of length `k + 1`. It is never a subsequence — it is the *frontier* of what is achievable, and the frontier is all you need. A binary search over it makes the whole thing `O(n log n)` instead of `O(n²)`.',
+      text: '`tails[k]` holds the smallest possible last element of an increasing run of length `k + 1`. It is never a subsequence — it is the **frontier** of what is achievable, and the frontier is all you need. A binary search over it makes the whole thing `O(n log n)` instead of `O(n²)`.',
     },
     {
       kind: 'p',
-      text: 'Two details here are the classic hand-written bugs. The comparison is strictly `<`, so an equal value **replaces** a tail rather than extending it — that is exactly what keeps the result strictly increasing, and relaxing it to `<=` gives you the longest non-decreasing subsequence instead, for free. And to recover the subsequence you need a second array recording *which element* placed each tail; linking to the wrong index quietly returns a shorter answer with no error.',
+      text: 'Two details here are the classic hand-written bugs. The comparison is strictly `<`, so an equal value **replaces** a tail rather than extending it — that is exactly what keeps the result strictly increasing, and relaxing it to `<=` gives you the longest non-decreasing subsequence instead, for free. And to recover the subsequence you need a second array recording **which element** placed each tail; linking to the wrong index quietly returns a shorter answer with no error.',
     },
 
     { kind: 'h2', text: 'The reference table' },
@@ -419,7 +419,7 @@ export const DP_SHAPES: Article = {
     },
     {
       kind: 'p',
-      text: 'The counter-signal is worth keeping too: if your recurrence needs a *set* of states rather than one number, or if filling order is genuinely hard to determine, DP is the wrong tool. That is not a failure of DP — it is the same two questions from [remember the sub-answer](/learn/dynamic-programming) answering "no". [Greedy](/learn/greedy) is what to reach for when the local choice can be proved safe, and brute force when neither holds.',
+      text: 'The counter-signal is worth keeping too: if your recurrence needs a **set** of states rather than one number, or if filling order is genuinely hard to determine, DP is the wrong tool. That is not a failure of DP — it is the same two questions from [remember the sub-answer](/learn/dynamic-programming) answering "no". [Greedy](/learn/greedy) is what to reach for when the local choice can be proved safe, and brute force when neither holds.',
     },
   ],
 };

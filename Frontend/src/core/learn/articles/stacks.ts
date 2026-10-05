@@ -22,13 +22,13 @@ export const MONOTONIC_STACK: Article = {
     },
     {
       kind: 'p',
-      text: 'This family of algorithms is what happens when you point that property at a problem where the question is always of the form *who is the nearest thing to my left that beats me?* — and the answer is that you should not be deleting elements one at a time. You should be keeping a stack **sorted**, and popping from it whenever the current element makes the top one redundant.',
+      text: 'This family of algorithms is what happens when you point that property at a problem where the question is always of the form **who is the nearest thing to my left that beats me?** — and the answer is that you should not be deleting elements one at a time. You should be keeping a stack **sorted**, and popping from it whenever the current element makes the top one redundant.',
     },
 
     { kind: 'h2', text: 'The base case: an ordinary stack' },
     {
       kind: 'p',
-      text: 'Postfix evaluation — `3 4 +` means `(3 + 4)` — is a stack for a reason that is easy to miss. The rule "push a number, pop two and push the result" is not a design choice; it is what evaluation order *is*. Every operator consumes two operands, and the order in which the interpreter meets them means the second one it sees is the first one the operator needs.',
+      text: 'Postfix evaluation — `3 4 +` means `(3 + 4)` — is a stack for a reason that is easy to miss. The rule "push a number, pop two and push the result" is not a design choice; it is what evaluation order **is**. Every operator consumes two operands, and the order in which the interpreter meets them means the second one it sees is the first one the operator needs.',
     },
     {
       kind: 'stepper',
@@ -80,7 +80,7 @@ export const MONOTONIC_STACK: Article = {
     },
     {
       kind: 'p',
-      text: 'What the monotonic order does *not* give you is a sorted result. The stack is sorted, the array is not, and reading the stack out at the end gives you nothing useful. If you need a sorted array, sort it — that is [the sorting landscape](/learn/sorting-landscape), and it is not this.',
+      text: 'What the monotonic order does **not** give you is a sorted result. The stack is sorted, the array is not, and reading the stack out at the end gives you nothing useful. If you need a sorted array, sort it — that is [the sorting landscape](/learn/sorting-landscape), and it is not this.',
     },
 
     { kind: 'h2', text: 'Instance one: the same shape, two ends' },
@@ -124,7 +124,7 @@ export const MONOTONIC_STACK: Article = {
     },
     {
       kind: 'p',
-      text: 'That is why the stack holds **bar indices** rather than heights: you need positions. And it is why the boundary arithmetic has an off-by-one that is not really an off-by-one — the left boundary is read *after* the pop and is **exclusive**, while the right boundary is the popping bar and is **inclusive**. An empty stack gives a left boundary of `-1`, a virtual bar outside the histogram, and that `-1` is counted so the width comes out right at the left edge.',
+      text: 'That is why the stack holds **bar indices** rather than heights: you need positions. And it is why the boundary arithmetic has an off-by-one that is not really an off-by-one — the left boundary is read **after** the pop and is **exclusive**, while the right boundary is the popping bar and is **inclusive**. An empty stack gives a left boundary of `-1`, a virtual bar outside the histogram, and that `-1` is counted so the width comes out right at the left edge.',
     },
     {
       kind: 'p',
@@ -140,7 +140,7 @@ export const MONOTONIC_STACK: Article = {
     { kind: 'h2', text: 'Instance three: the same shape, remembered forever' },
     {
       kind: 'p',
-      text: 'The last variant is the one where nothing is thrown away, because the question cannot be answered until the end. A stack that supports *get minimum in `O(1)`* keeps a second stack alongside the first, and pushes **the current minimum at every depth** rather than only when the minimum changes.',
+      text: 'The last variant is the one where nothing is thrown away, because the question cannot be answered until the end. A stack that supports **get minimum in `O(1)`** keeps a second stack alongside the first, and pushes **the current minimum at every depth** rather than only when the minimum changes.',
     },
     {
       kind: 'stepper',
@@ -180,7 +180,7 @@ export const MONOTONIC_STACK: Article = {
     },
     {
       kind: 'p',
-      text: 'Fail the third one and the technique does not apply. If the question is "what is the smallest element so far" with no notion of *nearest*, there is nothing to discard — a smaller value can still be beaten by a *larger* one that comes later, so nothing on the stack is ever redundant. That is why "minimum so far" is a running variable and not a stack problem, while "next greater" is.',
+      text: 'Fail the third one and the technique does not apply. If the question is "what is the smallest element so far" with no notion of **nearest**, there is nothing to discard — a smaller value can still be beaten by a **larger** one that comes later, so nothing on the stack is ever redundant. That is why "minimum so far" is a running variable and not a stack problem, while "next greater" is.',
     },
     {
       kind: 'callout',

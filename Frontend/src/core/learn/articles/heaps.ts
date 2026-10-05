@@ -131,7 +131,7 @@ export const HEAPS: Article = {
     },
     {
       kind: 'p',
-      text: 'The complexity is `O(n log n)` in every case — `O(n)` to build plus `n − 1` extractions at `O(log n)` each — with `O(1)` extra space and no auxiliary array at all. That combination is genuinely rare: a comparison sort with a worst-case guarantee *and* no extra memory.',
+      text: 'The complexity is `O(n log n)` in every case — `O(n)` to build plus `n − 1` extractions at `O(log n)` each — with `O(1)` extra space and no auxiliary array at all. That combination is genuinely rare: a comparison sort with a worst-case guarantee **and** no extra memory.',
     },
     {
       kind: 'callout',
@@ -198,7 +198,7 @@ export const HEAPS: Article = {
     },
     {
       kind: 'p',
-      text: 'The heap is the purest example in this app of a structure whose value is entirely in what it *declines* to do, and that is why it pairs so well with the rest of the material here: a heap is [a tree](/learn/binary-search-trees) with the ordering requirement deleted, and the deletion is what buys the `O(1)` minimum.',
+      text: 'The heap is the purest example in this app of a structure whose value is entirely in what it **declines** to do, and that is why it pairs so well with the rest of the material here: a heap is [a tree](/learn/binary-search-trees) with the ordering requirement deleted, and the deletion is what buys the `O(1)` minimum.',
     },
   ],
 };

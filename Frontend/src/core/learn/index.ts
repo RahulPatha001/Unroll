@@ -12,6 +12,7 @@ import {
   RECURSION_IS_A_STACK,
   TWO_POINTERS,
 } from './articles/techniques.ts';
+import { TRAVERSAL_IN_PRACTICE } from './articles/traversal.ts';
 import { BINARY_SEARCH_TREES } from './articles/trees.ts';
 import type { Article } from './types.ts';
 
@@ -78,7 +79,14 @@ export type { Article, Block } from './types.ts';
  *     programming, greedy.
  *  3. **The data-structure-adjacent algorithms**: binary search, hash tables, tries.
  *  4. **The families that had no article at all**: stacks, linked lists, heaps,
- *     trees, and the three graph articles.
+ *     trees, and the four graph articles.
+ *
+ * The graphs run **mechanism, then applications**: `bfs-and-dfs` isolates the one
+ * idea (a container, and everything else follows from it) and `traversal-in-practice`
+ * spends the same loop on the four problems an interview is actually made of. Putting
+ * them the other way round — applications first — means the reader meets an outer-loop
+ * over components before they have a clean statement of what a traversal is, which is
+ * the order that makes connected components look like a separate algorithm.
  *
  * The cross-references do the rest of the work. `reading-big-o` is deliberately
  * filed with the concepts it explains rather than in front of them: it is the one
@@ -103,6 +111,7 @@ export const ARTICLE_LIST: readonly Article[] = [
   HEAPS,
   BINARY_SEARCH_TREES,
   BFS_AND_DFS,
+  TRAVERSAL_IN_PRACTICE,
   SHORTEST_PATHS,
   MIN_SPANNING_TREE,
 ] as const;

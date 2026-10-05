@@ -50,6 +50,11 @@ function proseStrings(a: Article): string[] {
       case 'code':
         out.push(b.caption ?? '');
         break;
+      case 'video':
+        // `title` and `note` are the two fields `Em` renders; `source` is rendered as
+        // plain text by the card itself and `url` never reaches `Em` at all.
+        out.push(b.title, b.note);
+        break;
       case 'table':
         out.push(...b.head, ...b.rows.flat());
         break;
@@ -183,12 +188,51 @@ describe('articles', () => {
     expect(problems).toEqual([]);
   });
 
+  it('does not use single-asterisk emphasis, which is not a construct here', () => {
+    /*
+     * The balance check above cannot see this, because a single-asterisk pair IS
+     * balanced — it simply is not markup.
+     *
+     * The inline renderer's vocabulary is two constructs, `**strong**` and a backtick
+     * code span, and `Em` deliberately leaves anything else exactly as written. So a
+     * paragraph written with the other common flavour of Markdown emphasis — a single
+     * asterisk on each side — reaches the reader with its asterisks visible. There were
+     * 113 of these across eleven articles and nothing caught them: the prose rendered,
+     * the paragraph was still a paragraph, and the failure is only legible to someone
+     * reading the words rather than the markup.
+     *
+     * Teaching the renderer `*emphasis*` is the alternative and the wrong one. `*` is
+     * multiplication inside a code listing, and the marker collides with `**` at every
+     * boundary, so it would need a real delimiter rule — precisely the ambiguity
+     * `richText.tsx` refuses to take on. The content is what is wrong here, so the
+     * content is what gets fixed.
+     *
+     * Only prose is scanned. `code` blocks never reach this helper, which is the whole
+     * reason `proseStrings` exists.
+     */
+    const SINGLE_ASTERISK = /(?<!\*)\*(?!\*)([^*\n]{1,80}?)(?<!\*)\*(?!\*)/g;
+    const problems: string[] = [];
+    for (const a of ARTICLE_LIST) {
+      for (const text of proseStrings(a)) {
+        SINGLE_ASTERISK.lastIndex = 0;
+        const m = SINGLE_ASTERISK.exec(text);
+        if (m) {
+          problems.push(
+            `${a.slug}: the span *${m[1]}* renders with literal asterisks — write **${m[1]}**`,
+          );
+        }
+      }
+    }
+    expect(problems, `${problems.length} single-asterisk emphasis span(s)`).toEqual([]);
+  });
+
   it('has cross-references, or the section is a list of unrelated pages', () => {
     /*
      * A guard on the guard, in the same spirit as "at least one article embeds a
-     * stepper". Nineteen articles that never point at each other are nineteen
-     * articles a reader has to navigate between by hand, which is the difference
-     * between a course and a pile.
+     * stepper". A pile of articles that never point at each other is a pile a reader
+     * has to navigate between by hand, which is the difference between a course and a
+     * list. Deliberately number-free: the count changes whenever a guide is added, and
+     * this sentence is about the shape, not the size.
      */
     const linked = ARTICLE_LIST.filter((a) =>
       proseStrings(a).some((text) => {
@@ -277,6 +321,68 @@ describe('embedded steppers', () => {
   });
 });
 
+describe('embedded videos', () => {
+  /*
+   * A `video` block is the one place in this app that renders an anchor to somewhere
+   * else, and it exists because `Em` will not do it — see the note on `Block` in
+   * `types.ts`. That makes the URL the author's to get wrong, so it is checked here
+   * rather than trusted.
+   *
+   * The three checks are what a reader would actually be hurt by:
+   *
+   *  1. **`https://`** — a bare `http://` citation would be silently downgraded by any
+   *     browser on an insecure origin, so the link would look fine and be broken.
+   *  2. **Parseable and absolute** — a relative href here resolves against the current
+   *     route, so `[the course](/watch)` would 404 inside the SPA and, worse, pass a
+   *     naive "starts with /" check that is right for in-prose links and wrong here.
+   *  3. **A recognisable host** — not an allowlist, because citing a course host is a
+   *     legitimate editorial choice that should not need a code change. Just a check
+   *     that the URL has a real host, which catches a pasted fragment.
+   */
+  function videos(): Array<{ slug: string; block: Extract<Block, { kind: 'video' }> }> {
+    return ARTICLE_LIST.flatMap((a) =>
+      a.body
+        .filter((b): b is Extract<Block, { kind: 'video' }> => b.kind === 'video')
+        .map((block) => ({ slug: a.slug, block })),
+    );
+  }
+
+  it('every video is an absolute https URL with a host', () => {
+    const all = videos();
+    // Not "every article has one" — that is an editorial rule, and a wrong one to
+    // enforce. The assertion is only that the *check* below is not vacuous.
+    expect(all.length).toBeGreaterThan(0);
+
+    const problems: string[] = [];
+    for (const { slug, block } of all) {
+      let url: URL;
+      try {
+        url = new URL(block.url);
+      } catch {
+        problems.push(`${slug}: video url "${block.url}" does not parse — it must be absolute`);
+        continue;
+      }
+      if (url.protocol !== 'https:') problems.push(`${slug}: video url is ${url.protocol}//`);
+      if (!url.host.includes('.')) problems.push(`${slug}: video url has no real host`);
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it('says who published it, so a reader knows what they are clicking', () => {
+    const problems: string[] = [];
+    for (const { slug, block } of videos()) {
+      // The publisher and the "what to watch it for" line are what distinguish a
+      // citation from an advertisement. Without them the card is a bare link with a
+      // play icon, which is the least trustworthy shape this renderer could produce.
+      if (!block.source.trim()) problems.push(`${slug}: video has no source`);
+      if (block.note.trim().length < 20) {
+        problems.push(`${slug}: video note is too short to say what to watch for`);
+      }
+    }
+    expect(problems).toEqual([]);
+  });
+});
+
 describe('article blocks', () => {
   it('tables are rectangular', () => {
     /*
@@ -329,6 +435,11 @@ describe('article blocks', () => {
             break;
           case 'code':
             if (!b.code.trim()) problems.push(`${a.slug}: block ${i} code is empty`);
+            break;
+          case 'video':
+            if (!b.url.trim() || !b.title.trim() || !b.source.trim() || !b.note.trim()) {
+              problems.push(`${a.slug}: block ${i} video needs a url, title, source and note`);
+            }
             break;
           case 'stepper':
             if (!b.algoId.trim() || !b.caption.trim()) {

@@ -46,8 +46,8 @@ export function ArticlePage({
    * Backwards, too.
    *
    * "Next" alone made the section a corridor: every article pointed forward, so the
-   * only way back to something you skipped was the browser. With nineteen articles
-   * and a hand-ordered list that is a real cost, and the `previous` link is four
+   * only way back to something you skipped was the browser. With a hand-ordered list
+   * of any real length that is a genuine cost, and the `previous` link is four
    * lines. `position === -1` cannot happen — an unknown slug has already 404'd above
    * — but `ARTICLE_LIST[position - 1]` on -1 would be `undefined` anyway, which is
    * why this needs no guard of its own.

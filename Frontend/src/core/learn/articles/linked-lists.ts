@@ -19,7 +19,7 @@ export const POINTER_PROBLEMS: Article = {
   body: [
     {
       kind: 'p',
-      text: 'Linked lists are taught as "arrays that are worse", and that framing makes them hard. An array is a contiguous block with free indexing; a linked list buys three things with that loss: insertion and deletion in `O(1)` once you hold a node, no reallocation, and the ability to be a *cyclic* structure rather than a range.',
+      text: 'Linked lists are taught as "arrays that are worse", and that framing makes them hard. An array is a contiguous block with free indexing; a linked list buys three things with that loss: insertion and deletion in `O(1)` once you hold a node, no reallocation, and the ability to be a **cyclic** structure rather than a range.',
     },
     {
       kind: 'p',
@@ -75,24 +75,24 @@ return prev;                // prev is the new head`,
     },
     {
       kind: 'p',
-      text: 'The proof is short enough to be worth learning properly. Meeting proves there *is* a cycle, because two nodes can only coincide if they are both inside a ring. The reverse is the interesting half: if a cycle of length `λ` exists, then by the time slow has travelled `μ + λ` steps it is on the ring, and fast has travelled `2(μ + λ)`, which is also a whole number of laps — so they coincide.',
+      text: 'The proof is short enough to be worth learning properly. Meeting proves there **is** a cycle, because two nodes can only coincide if they are both inside a ring. The reverse is the interesting half: if a cycle of length `λ` exists, then by the time slow has travelled `μ + λ` steps it is on the ring, and fast has travelled `2(μ + λ)`, which is also a whole number of laps — so they coincide.',
     },
     {
       kind: 'stepper',
       algoId: 'detect-cycle',
       caption:
-        'A four-node tail feeding a three-node ring. The two cursors meet inside the ring — but that is not where the cycle *starts*, which is the second half of the algorithm.',
+        'A four-node tail feeding a three-node ring. The two cursors meet inside the ring — but that is not where the cycle **starts**, which is the second half of the algorithm.',
       preset: 'long-tail',
     },
     {
       kind: 'p',
-      text: 'And there is a second half, because *detecting* a cycle and *locating its entry* are different problems. The classic solution: park one cursor at the collision point, put the other at the head, and walk both one step at a time. They meet **at the entry**. The arithmetic: the collision happened at `μ + λ·k` steps, so the cursor that started at the head needs exactly `μ` steps to reach the ring, and the parked one needs `λ·k − μ` more — the same ring position.',
+      text: 'And there is a second half, because **detecting** a cycle and **locating its entry** are different problems. The classic solution: park one cursor at the collision point, put the other at the head, and walk both one step at a time. They meet **at the entry**. The arithmetic: the collision happened at `μ + λ·k` steps, so the cursor that started at the head needs exactly `μ` steps to reach the ring, and the parked one needs `λ·k − μ` more — the same ring position.',
     },
     {
       kind: 'callout',
       tone: 'note',
       title: 'Zero iterations in the easy case',
-      text: 'When the entire list is the ring, the collision point *is* the entry, so the second phase does nothing at all and the head is already correct. The trace says so explicitly, because a loop that runs zero times looks like a bug until you know what it means.',
+      text: 'When the entire list is the ring, the collision point **is** the entry, so the second phase does nothing at all and the head is already correct. The trace says so explicitly, because a loop that runs zero times looks like a bug until you know what it means.',
     },
     {
       kind: 'p',
@@ -155,7 +155,7 @@ return prev;                // prev is the new head`,
     },
     {
       kind: 'p',
-      text: 'The third row is the one that generalises beyond this category. Aliasing — two names for one object — is not a linked-list problem, it is a *reference* problem, and it is why a value-semantics language removes an entire class of these bugs while adding a different one. Every one of these three algorithms is `O(n)` time and `O(1)` extra space, which is the best a pointer algorithm can do, and none of them is harder than the bookkeeping it requires.',
+      text: 'The third row is the one that generalises beyond this category. Aliasing — two names for one object — is not a linked-list problem, it is a **reference** problem, and it is why a value-semantics language removes an entire class of these bugs while adding a different one. Every one of these three algorithms is `O(n)` time and `O(1)` extra space, which is the best a pointer algorithm can do, and none of them is harder than the bookkeeping it requires.',
     },
     {
       kind: 'p',

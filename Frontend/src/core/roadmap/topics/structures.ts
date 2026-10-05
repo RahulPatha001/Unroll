@@ -643,7 +643,7 @@ export const STRUCTURES: readonly Topic[] = [
       'The point where the input stops being a list of things and becomes a set of things with relationships. BFS answers shortest path; DFS answers "what can I reach" and "what can I form".',
     phase: 'structures',
     algoIds: ['bfs', 'dfs', 'flood-fill', 'number-of-islands'],
-    learnSlugs: ['bfs-and-dfs'],
+    learnSlugs: ['bfs-and-dfs', 'traversal-in-practice'],
     keyPoints: [
       'BFS with a queue gives the shortest path in an unweighted graph. DFS with a stack does not — that difference is the whole reason both exist.',
       'The `visited` set is not optional and it must be marked on *enqueue*, not on dequeue. Marking late is the classic infinite loop.',

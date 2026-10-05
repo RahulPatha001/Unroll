@@ -55,7 +55,7 @@ export const BUBBLE_SORT: Article = {
       kind: 'callout',
       tone: 'note',
       title: 'The one property worth keeping',
-      text: 'Bubble sort is *stable*: equal elements never swap, because the swap condition is strictly greater-than. That makes it the right answer for a genuinely small, genuinely stability-sensitive sort — which in practice is almost never.',
+      text: 'Bubble sort is **stable**: equal elements never swap, because the swap condition is strictly greater-than. That makes it the right answer for a genuinely small, genuinely stability-sensitive sort — which in practice is almost never.',
     },
 
     { kind: 'h2', text: 'The optimisation nobody should bother with' },
@@ -65,7 +65,7 @@ export const BUBBLE_SORT: Article = {
     },
     {
       kind: 'p',
-      text: 'It is correct, it takes one boolean, and it changes the *worst case* not at all — an already-reversed array still does every comparison. What it improves is **best case**, from O(n²) to O(n). If your data is nearly sorted, that is a big deal. If your data is random, it saves you one pass out of `n`.',
+      text: 'It is correct, it takes one boolean, and it changes the **worst case** not at all — an already-reversed array still does every comparison. What it improves is **best case**, from O(n²) to O(n). If your data is nearly sorted, that is a big deal. If your data is random, it saves you one pass out of `n`.',
     },
     {
       kind: 'p',
@@ -111,13 +111,13 @@ export const SORTING_LANDSCAPE: Article = {
     },
     {
       kind: 'p',
-      text: 'This is why quicksort, merge sort and heapsort all land on `O(n log n)` average or worst case: they are not cleverer than each other by a meaningful margin, they are all *at the bound*. The only question between them is the constant factor and the memory behaviour.',
+      text: 'This is why quicksort, merge sort and heapsort all land on `O(n log n)` average or worst case: they are not cleverer than each other by a meaningful margin, they are all **at the bound**. The only question between them is the constant factor and the memory behaviour.',
     },
     {
       kind: 'callout',
       tone: 'warn',
       title: 'But the bound has a door in it',
-      text: 'The proof assumes every decision comes from a comparison. Counting sort and radix sort never compare two values at all — they *count* them, or bucket them by digit. That is not a trick that avoids the lower bound, it is a different model: it trades generality for knowledge of the value range.',
+      text: 'The proof assumes every decision comes from a comparison. Counting sort and radix sort never compare two values at all — they **count** them, or bucket them by digit. That is not a trick that avoids the lower bound, it is a different model: it trades generality for knowledge of the value range.',
     },
 
     { kind: 'h2', text: 'The comparison' },
@@ -164,7 +164,7 @@ export const SORTING_LANDSCAPE: Article = {
           'O(n log n)',
           'O(1)',
           'no',
-          'worst-case guarantee *and* no extra memory',
+          'worst-case guarantee **and** no extra memory',
         ],
         [
           'Counting sort',
@@ -186,7 +186,7 @@ export const SORTING_LANDSCAPE: Article = {
     },
     {
       kind: 'p',
-      text: 'Selection sort earns its row mostly so the table is complete. It does exactly `n²/2` comparisons *always* — the count does not depend on the input at all — and it performs more writes than any other sort here. There is no input for which it is the right choice. Its one genuine merit is that it is trivial to write correctly, which is why it survives in textbooks.',
+      text: 'Selection sort earns its row mostly so the table is complete. It does exactly `n²/2` comparisons **always** — the count does not depend on the input at all — and it performs more writes than any other sort here. There is no input for which it is the right choice. Its one genuine merit is that it is trivial to write correctly, which is why it survives in textbooks.',
     },
 
     { kind: 'h2', text: 'The three questions, answered' },
@@ -227,7 +227,7 @@ export const SORTING_LANDSCAPE: Article = {
     { kind: 'h3', text: 'How much extra memory may you spend?' },
     {
       kind: 'p',
-      text: 'Merge sort allocates an auxiliary buffer the size of the input. On a 100 MB array that is another 100 MB, and on a memory-constrained machine that is the difference between working and not. Heap sort is in-place *and* has a worst-case guarantee, which is a genuinely rare combination — but its constant factor is bad enough that it usually loses to quicksort when memory is available.',
+      text: 'Merge sort allocates an auxiliary buffer the size of the input. On a 100 MB array that is another 100 MB, and on a memory-constrained machine that is the difference between working and not. Heap sort is in-place **and** has a worst-case guarantee, which is a genuinely rare combination — but its constant factor is bad enough that it usually loses to quicksort when memory is available.',
     },
     {
       kind: 'stepper',

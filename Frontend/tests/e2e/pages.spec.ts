@@ -319,6 +319,73 @@ test('a technique article has no visualiser call to action', async ({ page }) =>
   await noErrors(page);
 });
 
+test('a cited video is a real external link, not literal Markdown', async ({ page }) => {
+  /*
+   * The regression this exists for, and it is a two-line bug that renders correctly
+   * while being completely broken.
+   *
+   * The prose renderer only turns `[label](/path)` into an anchor when the href is a
+   * path on this site — deliberately, per `lib/richText.tsx`. So a video written the
+   * obvious way, `[the course](https://…)`, renders as literal text: brackets and
+   * all. Nothing throws, the paragraph is still a paragraph, and the failure is
+   * invisible until someone goes looking for the link.
+   *
+   * Hence a `video` block, and this asserts the *markup*: a real anchor, with the
+   * `rel` that stops the opened page reaching back through `window.opener`.
+   */
+  await page.goto('/learn/bfs-and-dfs');
+
+  const card = page.getByRole('figure').filter({ hasText: 'Graph Algorithms' });
+  await expect(card).toBeVisible();
+
+  const link = card.getByRole('link', { name: /Graph Algorithms for Technical Interviews/ });
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute('href', /^https:\/\/www\.youtube\.com\/watch/);
+  await expect(link).toHaveAttribute('target', '_blank');
+  await expect(link).toHaveAttribute('rel', /noopener/);
+
+  // The marker is consumed rather than displayed.
+  await expect(page.getByText('](https://www.youtube.com')).toHaveCount(0);
+  await noErrors(page);
+});
+
+test('the traversal guide teaches with code and embeds live steps', async ({ page }) => {
+  await page.goto('/learn/traversal-in-practice');
+
+  await expect(
+    page.getByRole('heading', { name: 'Traversal in practice', level: 1 }),
+  ).toBeVisible();
+
+  /*
+   * The code listings are the point of this page, so "there is a code block" is
+   * asserted as *content*: a listing that rendered empty, or a `pre` with no text in
+   * it, both satisfy a bare count check and teach nothing.
+   *
+   * Three, not four, and the count is load-bearing rather than approximate. This page
+   * has four patterns and the fourth — shortest path — deliberately points at the
+   * listing in `bfs-and-dfs` instead of repeating it, because two copies of the same
+   * traversal drift apart within a month and the reader cannot tell which is current.
+   * If someone does add that listing, this number should go up rather than the comment
+   * being rewritten to match.
+   */
+  const listings = page.locator('pre code');
+  expect(await listings.count()).toBeGreaterThanOrEqual(3);
+  for (const listing of await listings.all()) {
+    expect((await listing.innerText()).trim().length).toBeGreaterThan(40);
+  }
+
+  // And the differentiator still works here: the island-counting stepper resolves a
+  // real trace rather than rendering its graceful empty state.
+  const stepper = page.getByRole('figure').filter({ hasText: 'four-islands' }).first();
+  await expect(stepper).toBeVisible();
+  await expect(stepper.getByRole('button', { name: 'Step forward' })).toBeVisible();
+  const readout = stepper.locator('span.font-mono').first();
+  const first = await readout.innerText();
+  await stepper.getByRole('button', { name: 'Step forward' }).click();
+  await expect.poll(() => readout.innerText()).not.toBe(first);
+  await noErrors(page);
+});
+
 test('an unknown article slug is a 404 with a way out, not a blank page', async ({ page }) => {
   await page.goto('/learn/no-such-article');
   await expect(page.getByRole('heading', { name: /does not exist/ })).toBeVisible();

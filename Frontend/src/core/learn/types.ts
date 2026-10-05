@@ -45,6 +45,20 @@ export type Block =
   | { kind: 'callout'; tone: 'note' | 'warn' | 'good'; title: string; text: string }
   /** A comparison table. `head` and every row must be the same width. */
   | { kind: 'table'; head: string[]; rows: string[][] }
+  /**
+   * A video worth watching beside the prose.
+   *
+   * A dedicated block rather than a Markdown link, and the reason is a hard constraint
+   * rather than a style preference: `Em` turns `](/…)` into an anchor only when the
+   * href is a **path on this site**, by design — `lib/richText.tsx` documents that
+   * rule as the thing that keeps the renderer safe. So `[the course](https://youtu.be/…)`
+   * renders as literal Markdown, brackets and all, which is the exact failure that file
+   * opens with. A block kind is how this repo expresses something the prose renderer
+   * cannot: the author supplies a URL, and the renderer owns the anchor — so `target`,
+   * `rel` and the `https` check live in one place rather than in every article that
+   * wants to cite something.
+   */
+  | { kind: 'video'; url: string; title: string; source: string; note: string }
   /** The differentiator: the live visualiser, embedded, driven by its own transport. */
   | { kind: 'stepper'; algoId: string; caption: string; preset?: string; frame?: number };
 

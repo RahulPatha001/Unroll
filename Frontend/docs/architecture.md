@@ -865,7 +865,7 @@ the same tolerance that makes it safe in production also hides a stale preset id
 from CI. So the references are checked from the data side, where "does this preset
 exist" is a plain lookup.
 
-**Nineteen articles**, ordered as a course rather than a catalogue: sorting first
+**Every article**, ordered as a course rather than a catalogue: sorting first
 because it is where an algorithm's cost becomes visible, then the general techniques
 (two pointers, recursion, divide and conquer, DP, greedy), then the
 data-structure-adjacent algorithms (binary search, hashing, tries), then the families
@@ -926,35 +926,56 @@ visible `**` before this module existed: prose is rarely read by the person who
 wrote it, so a rendering defect in prose is invisible to review. The article
 baselines are what caught it this time.
 
-There is now a third construct, `[label](/learn/some-article)`, and it was added for
-the same reason: `sorting.ts` already ended with a cross-reference written as
-Markdown link syntax, and it rendered **as literal Markdown** — brackets, parens and
-all — because only the two inline markers above were understood. Nothing failed. A
-literal string is a valid string, and a page of prose still looks like a page of
-prose; the only symptom was a reader clicking nothing.
+### A fourth construct that is deliberately not one
 
-A URL is the one piece of prose that is not inert, so the new construct has two rules:
+`[label](/href)` only becomes an anchor when the href is a **path on this site**,
+because that restriction is what stops an arbitrary string from becoming an arbitrary
+anchor. The obvious consequence is that a link to somewhere else cannot be written
+in prose at all: `[the course](https://youtu.be/…)` renders as literal text, brackets
+and all, which is the same class of defect as the backticks above.
 
-- **A link is markup only if well formed.** `[text](/learn/typo` has no closing
-  paren, so it stays visible as the typo it is. Guessing would produce a broken link
-  that looks deliberate.
-- **The href must be a path on this site** — `startsWith('/')` and not
-  `startsWith('//')`. Anything else is emitted verbatim instead of becoming an anchor.
-  There is nothing to sanitise *today*, because every string is authored in-repo, and
-  that line is what keeps it true the day one is not.
+The graphs guides needed to cite a video, and the options were to loosen `isSafeHref`
+to accept `https://` or to add a block kind. Loosening it would have been one line
+and it would have been the wrong one: it makes every article able to emit an
+off-site anchor, and the one place that *should* be able to is now somewhere with a
+name, a test, and a single `rel`.
 
-What it deliberately does not touch: `a[mid]` is not a link and `[low, high)` is not a
-link. Recognition needs the complete `](…)` triple, so the bracket-heavy prose every
-article about arrays is full of renders exactly as before — a rule that claimed every
-`[` as markup would have broken the binary search guide to add links to the sorting
-one. `learn.test.ts` now checks that every `/learn/…` in every article resolves, which
-is the check whose absence let the original rot.
+So `Block` has a `video` variant, and the renderer owns the anchor:
 
+```ts
+| { kind: 'video'; url: string; title: string; source: string; note: string }
+```
+
+Three things follow from it being a block rather than a string. The `target` and
+`rel` are written once, in `ArticleBody.tsx`, instead of in every article that wants
+to cite something. `learn.test.ts` can require an absolute `https` URL with a real
+host — a bare `http://` citation is silently downgraded on any insecure origin, so
+the link looks fine and is broken. And the block is a **card** rather than a line of
+prose, carrying a publisher and a note saying what to watch it for, because a cited
+video is a resource and not a clause. The note is what stops the card reading as an
+endorsement of the whole two hours rather than of one section.
+
+### And a construct that is not markup at all
+
+`Em` supports `**` and backticks and nothing else — so the other common flavour of
+Markdown emphasis, a single asterisk on each side, reached the reader with its
+asterisks visible. There were 113 of those spans across eleven articles.
+
+The balance test could not see it, and could not have: a `*like this*` pair *is*
+balanced, it is simply not markup. What caught it was reading a rendered page, which
+is the same lesson the backtick incident taught.
+
+Teaching the renderer `*emphasis*` was the alternative and the wrong one — `*` is
+multiplication inside a code listing and the marker collides with `**` at every
+boundary, so it needs a real delimiter rule, which is precisely the ambiguity
+`richText.tsx` refuses to take on. The content was wrong, so the content got fixed,
+and `learn.test.ts` now fails on a single-asterisk span. The fix that does not
+belong here is loosening the renderer.
 ---
 
 ## The prose is not in the entry chunk
 
-Nineteen articles is 52.6 kB gzip of text, and it has to stay out of the entry chunk —
+The whole section is ~57 kB gzip of text, and it has to stay out of the entry chunk —
 not because it is large in the abstract but because every visitor pays for the entry
 chunk and most of them never open the guides.
 

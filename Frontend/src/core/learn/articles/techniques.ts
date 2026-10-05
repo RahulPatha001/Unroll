@@ -24,7 +24,7 @@ export const TWO_POINTERS: Article = {
   body: [
     {
       kind: 'p',
-      text: 'Two pointers is not an algorithm. It is a *shape* that a surprising number of linear-or-better algorithms share, and recognising it is worth more than memorising any one instance of it.',
+      text: 'Two pointers is not an algorithm. It is a **shape** that a surprising number of linear-or-better algorithms share, and recognising it is worth more than memorising any one instance of it.',
     },
     {
       kind: 'p',
@@ -125,11 +125,11 @@ export const TWO_POINTERS: Article = {
     { kind: 'h2', text: 'When it is the wrong shape' },
     {
       kind: 'p',
-      text: 'Two pointers requires you to be able to discard a region permanently. If a failed comparison leaves open the possibility that an earlier element matters — "is there a subarray with sum *exactly* `k`?" over unsorted data, say — then no index can be ruled out, and you are back to a hash map or a prefix-sum table. The technique does not fail because it is weak; it fails because the problem does not have the structure it needs.',
+      text: 'Two pointers requires you to be able to discard a region permanently. If a failed comparison leaves open the possibility that an earlier element matters — "is there a subarray with sum **exactly** `k`?" over unsorted data, say — then no index can be ruled out, and you are back to a hash map or a prefix-sum table. The technique does not fail because it is weak; it fails because the problem does not have the structure it needs.',
     },
     {
       kind: 'p',
-      text: 'The tell is worth memorising: if you cannot state *why* discarding index `i` is safe in one sentence, you do not have a two-pointer solution, you have a hope for one.',
+      text: 'The tell is worth memorising: if you cannot state **why** discarding index `i` is safe in one sentence, you do not have a two-pointer solution, you have a hope for one.',
     },
   ],
 };
@@ -154,7 +154,7 @@ export const RECURSION_IS_A_STACK: Article = {
     { kind: 'h2', text: 'What the stack buys you, and what it costs' },
     {
       kind: 'p',
-      text: 'The stack is the entire reason recursion can express things a loop cannot easily. When a function calls twice — once for each half of a problem — it has to do the first half, hold its result while the second runs, and return to the right place. A loop variable cannot express that. A frame can, for free, because the return address *is* that information.',
+      text: 'The stack is the entire reason recursion can express things a loop cannot easily. When a function calls twice — once for each half of a problem — it has to do the first half, hold its result while the second runs, and return to the right place. A loop variable cannot express that. A frame can, for free, because the return address **is** that information.',
     },
     {
       kind: 'callout',
@@ -208,7 +208,7 @@ function fib(n: number): number {
     },
     {
       kind: 'p',
-      text: 'This is why backtracking is cleanest written as *make a choice, recurse, undo the choice*. The undo is not optional bookkeeping — it is what makes the search exhaustive rather than merely deep-first down a single path.',
+      text: 'This is why backtracking is cleanest written as **make a choice, recurse, undo the choice**. The undo is not optional bookkeeping — it is what makes the search exhaustive rather than merely deep-first down a single path.',
     },
     {
       kind: 'stepper',
@@ -222,7 +222,7 @@ function fib(n: number): number {
     {
       kind: 'ol',
       items: [
-        '**What is the base case?** Not "when should I stop" — what is the *answer* at the smallest input? A base case that returns a wrong-shaped value is the most common recursive bug.',
+        '**What is the base case?** Not "when should I stop" — what is the **answer** at the smallest input? A base case that returns a wrong-shaped value is the most common recursive bug.',
         '**Does the recursive call make the problem smaller?** If a call can pass the same `n` it received, there is no termination argument and no complexity bound.',
         '**Will the calls overlap?** If two calls solve the same sub-problem, you need memoisation or a table, or the complexity is exponential and the stack depth is misleadingly small.',
       ],
@@ -341,11 +341,11 @@ export const DYNAMIC_PROGRAMMING: Article = {
     {
       kind: 'ul',
       items: [
-        '**Knapsack (0/1):** state is *(items considered, capacity remaining)*. The "remaining capacity" framing is the one that works, because it makes the transition a single comparison instead of an index-arithmetic puzzle.',
-        '**Coin change:** state is *amount*. Iterate amounts ascending, because amount `x` depends on amounts strictly below it.',
-        '**Grid paths:** state is *(row, col)*, and the order is rows-then-columns so the cell above and to the left are both filled.',
-        '**Edit distance:** state is *(prefix of a, prefix of b)*, with the classic three-way recurrence — match, delete, insert.',
-        '**Interval problems:** state is a pair of endpoints *(i, j)*, which is `O(n²)` states rather than `O(n)`. This is where people go wrong by trying to find a 1-D state that does not exist.',
+        '**Knapsack (0/1):** state is **(items considered, capacity remaining)**. The "remaining capacity" framing is the one that works, because it makes the transition a single comparison instead of an index-arithmetic puzzle.',
+        '**Coin change:** state is **amount**. Iterate amounts ascending, because amount `x` depends on amounts strictly below it.',
+        '**Grid paths:** state is **(row, col)**, and the order is rows-then-columns so the cell above and to the left are both filled.',
+        '**Edit distance:** state is **(prefix of a, prefix of b)**, with the classic three-way recurrence — match, delete, insert.',
+        '**Interval problems:** state is a pair of endpoints **(i, j)**, which is `O(n²)` states rather than `O(n)`. This is where people go wrong by trying to find a 1-D state that does not exist.',
       ],
     },
     {
@@ -371,7 +371,7 @@ export const DYNAMIC_PROGRAMMING: Article = {
     },
     {
       kind: 'p',
-      text: 'And one counter-signal worth keeping: if your recurrence needs a *set* of states rather than a single number, or if deciding the order to fill the table is genuinely hard, the answer is usually greedy or graph search instead. Not every hard problem is a DP problem, and forcing it produces tables that are correct and useless.',
+      text: 'And one counter-signal worth keeping: if your recurrence needs a **set** of states rather than a single number, or if deciding the order to fill the table is genuinely hard, the answer is usually greedy or graph search instead. Not every hard problem is a DP problem, and forcing it produces tables that are correct and useless.',
     },
   ],
 };
@@ -400,7 +400,7 @@ export const DIVIDE_AND_CONQUER: Article = {
     },
     {
       kind: 'p',
-      text: 'Almost everyone gets the first two right and then forgets the third exists — because "solve the two halves" is where the *code* is, while "put the halves back together" is where the *complexity* is.',
+      text: 'Almost everyone gets the first two right and then forgets the third exists — because "solve the two halves" is where the **code** is, while "put the halves back together" is where the **complexity** is.',
     },
 
     { kind: 'h2', text: 'The three steps, and the one that is optional' },
@@ -418,7 +418,7 @@ export const DIVIDE_AND_CONQUER: Article = {
     },
     {
       kind: 'p',
-      text: 'The merge is the interesting step and it is *not* free. It is `O(n)`, it needs somewhere to put the output, and it is the reason merge sort is `O(n)` in space while quicksort is `O(log n)`. An algorithm that divides and conquers but never combines is legal — [binary search](/learn/binary-search) is exactly that — and the combine step is simply absent.',
+      text: 'The merge is the interesting step and it is **not** free. It is `O(n)`, it needs somewhere to put the output, and it is the reason merge sort is `O(n)` in space while quicksort is `O(log n)`. An algorithm that divides and conquers but never combines is legal — [binary search](/learn/binary-search) is exactly that — and the combine step is simply absent.',
     },
     {
       kind: 'stepper',
@@ -431,7 +431,7 @@ export const DIVIDE_AND_CONQUER: Article = {
       kind: 'callout',
       tone: 'note',
       title: 'The combine step is why a bottom-up version exists',
-      text: 'Since each merge is `O(n)` and there are `log₂ n` levels, the whole sort is `n · log₂ n`. You can flip it around: merge *passes* of pairwise runs, each pass costing `O(n)`, doubling the run length each time. Same work, but with no recursion at all — which is what a bottom-up merge sort actually is, and why it is the better choice when the data is on disk and the recursion stack is a real cost.',
+      text: 'Since each merge is `O(n)` and there are `log₂ n` levels, the whole sort is `n · log₂ n`. You can flip it around: merge **passes** of pairwise runs, each pass costing `O(n)`, doubling the run length each time. Same work, but with no recursion at all — which is what a bottom-up merge sort actually is, and why it is the better choice when the data is on disk and the recursion stack is a real cost.',
     },
 
     { kind: 'h2', text: 'Halving by two versus halving by one' },
@@ -470,13 +470,13 @@ export const DIVIDE_AND_CONQUER: Article = {
       kind: 'callout',
       tone: 'warn',
       title: 'The mistake this catches',
-      text: 'The reflex is "divide and conquer makes things `n log n`". It makes things `n log n` *when the sub-problem is a fraction of the original*. If you have written a recursive algorithm whose sub-problem is `n − 1` and you called it divide and conquer because it splits the work in two, you have built an exponential algorithm with a good name.',
+      text: 'The reflex is "divide and conquer makes things `n log n`". It makes things `n log n` **when the sub-problem is a fraction of the original**. If you have written a recursive algorithm whose sub-problem is `n − 1` and you called it divide and conquer because it splits the work in two, you have built an exponential algorithm with a good name.',
     },
 
     { kind: 'h2', text: 'Quicksort: the same shape, worse promises' },
     {
       kind: 'p',
-      text: 'Quicksort divides around a **pivot** rather than at the midpoint, which makes it faster in practice and *worse* in theory — and the difference between those two statements is entirely about how the pivot is chosen.',
+      text: 'Quicksort divides around a **pivot** rather than at the midpoint, which makes it faster in practice and **worse** in theory — and the difference between those two statements is entirely about how the pivot is chosen.',
     },
     {
       kind: 'p',
@@ -513,7 +513,7 @@ export const DIVIDE_AND_CONQUER: Article = {
     },
     {
       kind: 'p',
-      text: 'It is worth including as a member of the family because it shows what the shape looks like when one step is missing. `T(n) = T(n/2) + O(1)` is `O(log n)` not because the constant is small but because the *only* work is per-level, with `log n` levels and nothing else. Merge sort pays `O(n)` per level and still wins on a big array, because it has to build a sorted result; binary search pays nothing per level, because it only has to find one.',
+      text: 'It is worth including as a member of the family because it shows what the shape looks like when one step is missing. `T(n) = T(n/2) + O(1)` is `O(log n)` not because the constant is small but because the **only** work is per-level, with `log n` levels and nothing else. Merge sort pays `O(n)` per level and still wins on a big array, because it has to build a sorted result; binary search pays nothing per level, because it only has to find one.',
     },
     {
       kind: 'callout',
@@ -530,8 +530,8 @@ export const DIVIDE_AND_CONQUER: Article = {
     {
       kind: 'ul',
       items: [
-        "**Disjoint** — merge sort's halves, quicksort's partitions, binary search's halves. Each element is in exactly one sub-problem, so the recursion tree is a *tree* and memoising anything buys nothing. This is divide and conquer.",
-        '**Overlapping** — naive Fibonacci, where `fib(n−1)` and `fib(n−2)` both need `fib(n−2)`. The recursion is a *DAG* drawn as a tree, and memoising collapses it. This is [dynamic programming](/learn/dynamic-programming).',
+        "**Disjoint** — merge sort's halves, quicksort's partitions, binary search's halves. Each element is in exactly one sub-problem, so the recursion tree is a **tree** and memoising anything buys nothing. This is divide and conquer.",
+        '**Overlapping** — naive Fibonacci, where `fib(n−1)` and `fib(n−2)` both need `fib(n−2)`. The recursion is a **DAG** drawn as a tree, and memoising collapses it. This is [dynamic programming](/learn/dynamic-programming).',
       ],
     },
     {

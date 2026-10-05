@@ -33,7 +33,24 @@ import { type Fixture, settle } from './harness.ts';
  *    express a relationship.
  */
 
-const BASELINE = join(dirname(fileURLToPath(import.meta.url)), '__baselines__', 'layout.json');
+/*
+ * `../../__baselines__/layout.json`, not `__baselines__/layout.json`.
+ *
+ * Commit `1ba2b05` ("adjusted path of baselines") moved the file up out of
+ * `tests/visual/` — correctly, since a baseline is not a test — and updated
+ * `tsconfig.json`, but left this line resolving against the spec's own directory. The
+ * suite then failed at collection with "No geometry baseline at …" on every run,
+ * which is the failure mode a missing-file check is worst at: it reads as "the
+ * baselines were never generated" rather than "a path stopped matching", so the
+ * obvious response is to regenerate them and commit churn.
+ */
+const BASELINE = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '__baselines__',
+  'layout.json',
+);
 const UPDATING = Boolean(process.env.UPDATE_LAYOUT);
 
 interface Reading {

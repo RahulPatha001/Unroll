@@ -1,4 +1,4 @@
-import { AlertTriangle, Info, Lightbulb } from 'lucide-react';
+import { AlertTriangle, ExternalLink, Info, Lightbulb, Play } from 'lucide-react';
 import type { Block } from '../../core/learn/types.ts';
 import { Em } from '../../lib/richText.tsx';
 import { cn } from '../../lib/utils.ts';
@@ -99,6 +99,10 @@ function blockKey(block: Block): string {
         return `${block.lang}:${slugify(block.caption ?? block.code).slice(0, 30)}`;
       case 'table':
         return `table:${slugify(block.head.join(' ')).slice(0, 30)}`;
+      case 'video':
+        // Keyed on the URL rather than the title: two videos can legitimately share a
+        // title ("part 1"), and the key still has to be distinct among siblings.
+        return `video:${slugify(block.url).slice(0, 40)}`;
       case 'stepper':
         return `stepper:${block.algoId}`;
     }
@@ -281,6 +285,9 @@ function BlockRenderer({ block, onNavigate }: { block: Block; onNavigate: (to: s
         </div>
       );
 
+    case 'video':
+      return <VideoCard video={block} onNavigate={onNavigate} />;
+
     case 'stepper':
       return (
         <EmbeddedStepper
@@ -291,6 +298,75 @@ function BlockRenderer({ block, onNavigate }: { block: Block; onNavigate: (to: s
         />
       );
   }
+}
+
+/**
+ * An external video, as a card.
+ *
+ * ## Why this is not a link in the prose
+ *
+ * `Em` turns `[label](/some/path)` into an anchor only when the href is a path on this
+ * site, and that restriction is deliberate — it is what stops a string from becoming
+ * an arbitrary anchor. So an external URL written as Markdown renders as literal
+ * `[text](https://…)`, which is the bug `richText.tsx` documents as the reason links
+ * exist at all. This block moves the decision into the renderer: the author supplies a
+ * URL, and the anchor is built here, once.
+ *
+ * ## `target="_blank"` and `rel="noopener noreferrer"`
+ *
+ * `noopener` is the part that matters. Without it the opened page gets a handle on
+ * `window.opener` and can navigate this tab — and a reader who clicked a citation
+ * would find the article they were reading replaced. These are also the only
+ * third-party links anywhere in the app, so there is exactly one place this can go
+ * wrong.
+ *
+ * ## A card, not a line of text
+ *
+ * A cited video is a resource, not a clause. Rendering it as a card with the title,
+ * the publisher and a line saying what to watch it for means a reader can tell what
+ * they are about to open *before* they open it — and the `note` is what stops the card
+ * reading as an endorsement of the whole video rather than of one section of it.
+ *
+ * The label is the whole title, and `ExternalLink` carries the "leaves the site" signal
+ * so it does not read as another in-page cross-reference.
+ */
+function VideoCard({
+  video,
+  onNavigate,
+}: {
+  video: Extract<Block, { kind: 'video' }>;
+  /** So a cross-reference inside `note` is a router transition, like every other. */
+  onNavigate: (to: string) => void;
+}) {
+  return (
+    <figure className="measure overflow-hidden rounded-xl border border-border-strong bg-surface-raised/50">
+      <figcaption className="border-b border-border/70 px-3.5 py-2">
+        <span className="flex items-center gap-2 text-[10px] font-bold tracking-wide text-accent uppercase">
+          <Play className="size-3" />
+          Video
+        </span>
+        <span className="mt-1 block text-[9.5px] text-text-subtle">{video.source}</span>
+      </figcaption>
+      <div className="px-3.5 py-3">
+        <a
+          href={video.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-start gap-2.5 text-[13.5px] font-semibold text-text-strong transition-colors hover:text-accent-strong"
+        >
+          <Play
+            aria-hidden="true"
+            className="mt-0.5 size-4 shrink-0 text-accent transition-transform duration-200 group-hover:scale-110"
+          />
+          <span className="min-w-0 flex-1">{video.title}</span>
+          <ExternalLink aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-text-subtle" />
+        </a>
+        <p className="measure mt-1.5 text-[12.5px] leading-relaxed text-text-muted">
+          <Em text={video.note} onNavigate={onNavigate} />
+        </p>
+      </div>
+    </figure>
+  );
 }
 
 /**

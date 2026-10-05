@@ -79,7 +79,7 @@ export const BINARY_SEARCH: Article = {
     { kind: 'h2', text: 'The four variants, and why they are harder than they look' },
     {
       kind: 'p',
-      text: 'Finding an *exact* value is the easy case. The variants ask for something less well-defined, and each has a different convention:',
+      text: 'Finding an **exact** value is the easy case. The variants ask for something less well-defined, and each has a different convention:',
     },
     {
       kind: 'table',
@@ -105,7 +105,7 @@ export const BINARY_SEARCH: Article = {
     },
     {
       kind: 'p',
-      text: 'The classic bug in all four is treating "not found" as an error state when it is really a valid boundary. `lower_bound` on an array whose every element is smaller than the target returns `a.length` — the one-past-the-end position where the target *would* be inserted. Code that indexes with it reads off the end of the array.',
+      text: 'The classic bug in all four is treating "not found" as an error state when it is really a valid boundary. `lower_bound` on an array whose every element is smaller than the target returns `a.length` — the one-past-the-end position where the target **would** be inserted. Code that indexes with it reads off the end of the array.',
     },
     {
       kind: 'p',
@@ -119,7 +119,7 @@ export const BINARY_SEARCH: Article = {
     },
     {
       kind: 'p',
-      text: 'The moment that breaks, binary search silently returns garbage rather than failing. It works on a cyclic-rotated sorted array provided you also know the rotation point; it works on a mountain array with the right two-step comparison; and it does **not** work on a merely *nearly* sorted array. There is no partial credit, which is why the precondition deserves to be in a comment rather than assumed.',
+      text: 'The moment that breaks, binary search silently returns garbage rather than failing. It works on a cyclic-rotated sorted array provided you also know the rotation point; it works on a mountain array with the right two-step comparison; and it does **not** work on a merely **nearly** sorted array. There is no partial credit, which is why the precondition deserves to be in a comment rather than assumed.',
     },
 
     { kind: 'h2', text: 'Why it is still worth knowing' },
@@ -129,7 +129,7 @@ export const BINARY_SEARCH: Article = {
     },
     {
       kind: 'p',
-      text: 'It is also the standard way to find the *boundary* of a monotonic property, which is a much more common shape than exact lookup. "Find the first index where the running sum exceeds `k`" is a lower bound. So is "find the smallest `n` for which the array is sorted". So is "find the last day the temperature dropped below freezing". None of those need a value to exist at all.',
+      text: 'It is also the standard way to find the **boundary** of a monotonic property, which is a much more common shape than exact lookup. "Find the first index where the running sum exceeds `k`" is a lower bound. So is "find the smallest `n` for which the array is sorted". So is "find the last day the temperature dropped below freezing". None of those need a value to exist at all.',
     },
   ],
 };
@@ -151,7 +151,7 @@ export const HASH_TABLES: Article = {
     { kind: 'h2', text: 'The idea' },
     {
       kind: 'p',
-      text: 'A hash function maps a key to a slot. You compute where a key *must* live when you insert it, and recompute the same value when you look it up — so a lookup is one hash computation plus one array access. There is no traversal, no comparison against other elements, and therefore no reason for the cost to depend on how many elements are stored.',
+      text: 'A hash function maps a key to a slot. You compute where a key **must** live when you insert it, and recompute the same value when you look it up — so a lookup is one hash computation plus one array access. There is no traversal, no comparison against other elements, and therefore no reason for the cost to depend on how many elements are stored.',
     },
     {
       kind: 'p',
@@ -212,7 +212,7 @@ export const HASH_TABLES: Article = {
     { kind: 'h2', text: 'What O(1) average actually assumes' },
     {
       kind: 'p',
-      text: 'The claim rests on load factor and hash quality together. **Load factor** is the ratio of stored elements to slots; in this visualiser the table doubles when the factor passes **0.75**, and chains get longer as the factor climbs. **Hash quality** is how uniformly keys spread — and this is the part that is a *social* assumption rather than a mathematical one.',
+      text: 'The claim rests on load factor and hash quality together. **Load factor** is the ratio of stored elements to slots; in this visualiser the table doubles when the factor passes **0.75**, and chains get longer as the factor climbs. **Hash quality** is how uniformly keys spread — and this is the part that is a **social** assumption rather than a mathematical one.',
     },
     {
       kind: 'p',
@@ -239,7 +239,7 @@ export const HASH_TABLES: Article = {
     },
     {
       kind: 'p',
-      text: 'Which is the summary: a hash table is the right structure when you are doing *lookups* and do not care about order. The moment order becomes a requirement, the tree is the better tool, and the `log n` is the price of that ordering.',
+      text: 'Which is the summary: a hash table is the right structure when you are doing **lookups** and do not care about order. The moment order becomes a requirement, the tree is the better tool, and the `log n` is the price of that ordering.',
     },
     {
       kind: 'p',
@@ -277,7 +277,7 @@ export const STRINGS_AS_KEYS: Article = {
     { kind: 'h2', text: 'The structure' },
     {
       kind: 'p',
-      text: 'One node per **distinct prefix**. The root is the empty prefix; each node has an outgoing edge per character that can follow it, and a flag saying whether a word *ends* here. Inserting a word is a walk; searching is a walk.',
+      text: 'One node per **distinct prefix**. The root is the empty prefix; each node has an outgoing edge per character that can follow it, and a flag saying whether a word **ends** here. Inserting a word is a walk; searching is a walk.',
     },
     {
       kind: 'stepper',
@@ -290,7 +290,7 @@ export const STRINGS_AS_KEYS: Article = {
       kind: 'callout',
       tone: 'note',
       title: 'The node count is bounded by distinct prefixes, not by word length',
-      text: 'That is the whole sizing story. A trie over a large dictionary is *smaller* than the words it stores, because the prefixes are shared. A trie over four short words is larger, because you have paid for every prefix whether it is used twice or once. So the question is not "is a trie big" but "are my keys sharing prefixes" — and natural language keys share enormously.',
+      text: 'That is the whole sizing story. A trie over a large dictionary is **smaller** than the words it stores, because the prefixes are shared. A trie over four short words is larger, because you have paid for every prefix whether it is used twice or once. So the question is not "is a trie big" but "are my keys sharing prefixes" — and natural language keys share enormously.',
     },
 
     { kind: 'h2', text: 'The prefix query' },
@@ -307,13 +307,13 @@ export const STRINGS_AS_KEYS: Article = {
     },
     {
       kind: 'p',
-      text: '**A missing edge *is* the answer.** There is no "check the rest of the dictionary" step, no alternative location to try, and no second strategy. That is why a prefix query costs `O(prefix length)` and is completely independent of how many words are stored — while a hash table asking the same question costs a full scan of its entries.',
+      text: '**A missing edge **is** the answer.** There is no "check the rest of the dictionary" step, no alternative location to try, and no second strategy. That is why a prefix query costs `O(prefix length)` and is completely independent of how many words are stored — while a hash table asking the same question costs a full scan of its entries.',
     },
     {
       kind: 'callout',
       tone: 'warn',
       title: 'The one case that needs the footnote',
-      text: 'The empty prefix matches everything, and matching it is `O(1)` while *enumerating* the answer is `O(n)`. So "independent of dictionary size" is true of the lookup and false of the listing — and any interface that offers prefix search is really offering a range enumeration, which is the operation that costs.',
+      text: 'The empty prefix matches everything, and matching it is `O(1)` while **enumerating** the answer is `O(n)`. So "independent of dictionary size" is true of the lookup and false of the listing — and any interface that offers prefix search is really offering a range enumeration, which is the operation that costs.',
     },
     {
       kind: 'p',
@@ -340,7 +340,7 @@ export const STRINGS_AS_KEYS: Article = {
     },
     {
       kind: 'p',
-      text: 'Read that table as one sentence: **a hash table is optimised for equality, a trie is optimised for sharing.** If your queries are all equality, hashing wins on space and simplicity. The moment a query has a *shape* — a prefix, a range, "what could follow what" — the structure that shares the work is the one you want.',
+      text: 'Read that table as one sentence: **a hash table is optimised for equality, a trie is optimised for sharing.** If your queries are all equality, hashing wins on space and simplicity. The moment a query has a **shape** — a prefix, a range, "what could follow what" — the structure that shares the work is the one you want.',
     },
 
     { kind: 'h2', text: 'When a trie is the right answer' },

@@ -3,9 +3,12 @@ import type { Article } from '../types.ts';
 /**
  * Graphs.
  *
- * Three articles, because ten algorithms are three conversations:
+ * Four articles, because ten algorithms are four conversations:
  *
- *  - `bfs-and-dfs` — reachability, and what changes when you swap the container.
+ *  - `bfs-and-dfs` — how a graph is stored, reachability, and what changes when
+ *    you swap the container. The mechanism, in isolation.
+ *  - `traversal-in-practice` (in `traversal.ts`) — the four interview problems
+ *    that mechanism solves, and the two questions that pick between them.
  *  - `shortest-paths` — the moment an edge stops being a step and starts being a
  *    cost, and the three different prices of that.
  *  - `minimum-spanning-trees` — two greedy algorithms that provably agree on the
@@ -25,7 +28,7 @@ export const BFS_AND_DFS: Article = {
   dek: 'Breadth-first and depth-first differ by exactly one data structure — and that is why they answer different questions.',
   category: 'graphs',
   tags: ['traversal', 'queue', 'stack', 'reachability', 'connected components'],
-  readMinutes: 12,
+  readMinutes: 20,
   algoId: 'bfs',
   body: [
     {
@@ -34,10 +37,74 @@ export const BFS_AND_DFS: Article = {
     },
     {
       kind: 'p',
-      text: 'That sounds like a small difference, and it is not. It changes what the traversal *means*, and it is the difference between "is this reachable" and "how many steps away is this".',
+      text: 'That sounds like a small difference, and it is not. It changes what the traversal **means**, and it is the difference between "is this reachable" and "how many steps away is this".',
     },
 
-    { kind: 'h2', text: 'The shared skeleton' },
+    {
+      kind: 'video',
+      url: 'https://www.youtube.com/watch?v=tWVWeAqZ0WU',
+      title: 'Graph Algorithms for Technical Interviews — Full Course',
+      source: 'William Fiset, on the freeCodeCamp channel · about 2 hours',
+      note: 'The clearest free treatment of the whole topic, and it is worth an evening rather than a skim. Watch the **graph basics** and **adjacency list** sections first, because they are the part this app cannot show you: the visualisers below already hand you a graph, so the representation is the part you would otherwise take on trust. Its second half then works through the interview applications — has-path, shortest path, connected components, island count — which are collected in [traversal in practice](/learn/traversal-in-practice).',
+    },
+
+    { kind: 'h2', text: 'How a graph is stored, which is not a detail' },
+    {
+      kind: 'p',
+      text: 'Before any of this runs, the graph has to be a data structure. The choice is not cosmetic: it decides the cost of `for (const v of adj[u])`, and that loop is what every traversal is made of.',
+    },
+    {
+      kind: 'table',
+      head: ['Representation', 'Space', 'Cost of listing neighbours', 'Worth it when'],
+      rows: [
+        [
+          '**Adjacency list**',
+          '`O(V + E)`',
+          'proportional to the number of edges at that node',
+          'almost always — the cost tracks the work you actually do',
+        ],
+        [
+          '**Adjacency matrix**',
+          '`O(V²)`',
+          '`O(V)` — you scan a whole row whether or not the edges exist',
+          'the graph is dense, **or** you need "is there an edge u to v" in `O(1)`',
+        ],
+      ],
+    },
+    {
+      kind: 'p',
+      text: 'An adjacency list is a **dictionary or array from a node to its neighbours**: the entry for `a` holds exactly the nodes with an edge to `a`. Every traversal below is a loop over that entry, which is what makes the `O(V + E)` bound true. Each node is expanded once, and expanding a node costs its own degree.',
+    },
+    {
+      kind: 'code',
+      lang: 'typescript',
+      code: `// Adjacency list: adj[u] holds every node that u has an edge to.
+const adj: number[][] = Array.from({ length: n }, () => []);
+
+// Undirected: write the edge BOTH ways. Each node has to be a neighbour of
+// the other in both directions, and forgetting the second line is the most
+// common bug in graph code — the traversal still runs, it just quietly
+// becomes a directed search and misses half of the graph.
+function addUndirected(a: number, b: number): void {
+  adj[a].push(b);
+  adj[b].push(a);
+}
+
+// Directed: one entry only, and the traversal must obey the arrows — the
+// whole difference between a road network and a web of links.
+function addDirected(a: number, b: number): void {
+  adj[a].push(b);
+}`,
+      caption:
+        'The matrix alternative is a table of booleans, `edge[u][v]`, which costs `O(V²)` writes to fill before you read a single neighbour. On a sparse graph that is more expensive than the entire traversal.',
+    },
+    {
+      kind: 'callout',
+      tone: 'note',
+      title: 'Why the visualisers can hide this from you',
+      text: 'Every graph on this page was already stored as an adjacency list before you saw it, so the construction cost never appears. That is a genuine blind spot while learning: an interview problem includes building the structure, and on a large sparse input that build is often a bigger share of the runtime than the search. Count the edges as you read them, and remember both directions on an undirected problem.',
+    },
+
     {
       kind: 'p',
       text: 'Both do this:',
@@ -62,10 +129,95 @@ export const BFS_AND_DFS: Article = {
       text: 'This is the same one-line correctness argument that binary search has, in a different costume: each step permanently eliminates part of the search space. Here the eliminated part is "everything reachable from a node we have finished with".',
     },
 
-    { kind: 'h2', text: 'The one line that differs' },
+    {
+      kind: 'code',
+      lang: 'typescript',
+      code: `function bfs(adj: number[][], start: number) {
+  const dist = new Array<number>(adj.length).fill(-1);
+  dist[start] = 0;
+
+  // A queue with a moving head, not queue.shift(). shift() is O(n), because
+  // every remaining element has to slide down one place — so using it here
+  // quietly turns an O(V + E) traversal into O(V squared), and still passes
+  // every test you would write at interview scale.
+  const queue: number[] = [start];
+  let head = 0;
+
+  while (head < queue.length) {
+    const u = queue[head++];              // dequeue: the OLDEST node
+    for (const v of adj[u]) {
+      if (dist[v] !== -1) continue;        // already seen, skip
+      dist[v] = dist[u] + 1;               // first arrival is by a shortest path
+      queue.push(v);                       // mark ON PUSH, never on pop
+    }
+  }
+  return dist;
+}
+
+function dfs(adj: number[][], start: number) {
+  const seen = new Array<boolean>(adj.length).fill(false);
+  seen[start] = true;                      // marked BEFORE it goes on the stack
+
+  const stack: number[] = [start];
+  while (stack.length > 0) {
+    const u = stack.pop()!;                // LIFO: the NEWEST node comes off first
+    for (const v of adj[u]) {
+      if (seen[v]) continue;
+      seen[v] = true;                      // again: on push, not on pop
+      stack.push(v);
+    }
+  }
+}`,
+      caption:
+        'Ten lines each. Read them side by side and the only differences are the container — queue[head++] against stack.pop() — and what you store on the node: a distance against a boolean.',
+    },
     {
       kind: 'p',
-      text: 'Both visualisers here are **iterative on purpose**. DFS in particular would be completely natural to write recursively, and the app does not: the stack is drawn as a visible `frontier` array, which is the point. In the iterative form the `frontier` field *is* the container — the right-hand entry is the next node out, and in DFS you can watch it shrink as backtracks happen.',
+      text: 'Notice that BFS stores a **distance** where DFS stores a **boolean**, and that is not cosmetic either. A boolean is all DFS needs, because the traversal does not care how far away anything is. BFS must record the distance, because "the first time I reach you is by a shortest path" is a property of the **order** — and if you do not write it down at the moment it happens, you cannot recover it afterwards.',
+    },
+    {
+      kind: 'code',
+      lang: 'typescript',
+      code: `// The recursive DFS. Shorter than the loop version, and the one you will
+// be asked to write, because it reads as a definition of the problem.
+function dfs(u: number, adj: number[][], seen: boolean[]): void {
+  seen[u] = true;
+  for (const v of adj[u]) {
+    if (!seen[v]) dfs(v, adj, seen);
+  }
+}
+
+// The recursive call IS the stack. One frame per node of depth is why the
+// loop version above is not a stylistic preference: on a 100,000-node path
+// the recursive form exhausts the call stack before it exhausts memory.
+function findPath(
+  u: number,
+  goal: number,
+  adj: number[][],
+  seen: boolean[],
+): number[] | null {
+  if (u === goal) return [u];
+  seen[u] = true;
+  for (const v of adj[u]) {
+    if (seen[v]) continue;
+    const rest = findPath(v, goal, adj, seen);
+    if (rest !== null) return [u, ...rest];  // v is on the path: splice u in front
+  }
+  return null;                               // nothing below u reaches the goal
+}`,
+      caption:
+        'Recursive DFS does one thing the loop version cannot: it hands the partial path back up the stack, so findPath costs nothing extra to return an actual route instead of a yes.',
+    },
+    {
+      kind: 'callout',
+      tone: 'warn',
+      title: 'The one-line bug that makes the loop version look wrong',
+      text: 'Move the `seen[v] = true` to after the `stack.push(v)` and DFS still works on an acyclic graph — then goes into an infinite loop the moment anyone adds a cycle back. Worth breaking on purpose once, with two nodes pointing at each other, and watching it hang.',
+    },
+
+    {
+      kind: 'p',
+      text: 'Both visualisers here are **iterative on purpose**. DFS in particular would be completely natural to write recursively, and the app does not: the stack is drawn as a visible `frontier` array, which is the point. In the iterative form the `frontier` field **is** the container — the right-hand entry is the next node out, and in DFS you can watch it shrink as backtracks happen.',
     },
     {
       kind: 'p',
@@ -93,7 +245,7 @@ export const BFS_AND_DFS: Article = {
       kind: 'callout',
       tone: 'note',
       title: 'Reachability is order-independent',
-      text: 'Both traversers visit exactly the set of nodes reachable from the start. So for "can I get there at all", BFS and DFS are interchangeable — number of islands, flood fill and cycle detection could use either. The order only becomes load-bearing when something about the *path* matters.',
+      text: 'Both traversers visit exactly the set of nodes reachable from the start. So for "can I get there at all", BFS and DFS are interchangeable — number of islands, flood fill and cycle detection could use either. The order only becomes load-bearing when something about the **path** matters.',
     },
 
     { kind: 'h2', text: 'What the order buys you' },
@@ -124,7 +276,7 @@ export const BFS_AND_DFS: Article = {
         [
           'What order respects these dependencies?',
           "Kahn's algorithm, not DFS",
-          'it needs nodes whose prerequisites are all *already emitted*, which is a set, not a path',
+          'it needs nodes whose prerequisites are all **already emitted**, which is a set, not a path',
         ],
         [
           'Find a path that is long and winding',
@@ -138,7 +290,65 @@ export const BFS_AND_DFS: Article = {
       text: 'The row that catches people is the third. **BFS ignores edge weights completely.** Its narration says so out loud — "BFS counts hops, not cost" — and the presets pass weight 1 to every listing regardless of what the graph says. On a weighted graph, breadth-first is not an approximation of shortest path; it is a different quantity, and if you wanted cost you wanted [Dijkstra](/learn/shortest-paths).',
     },
 
-    { kind: 'h2', text: 'Unreachable is a value, not an error' },
+    { kind: 'h2', text: 'A distance is not a path' },
+    {
+      kind: 'p',
+      text: 'This is the gap that makes "I ran BFS and it did not work" the most common graph bug there is. BFS gives you the number of hops and **nothing about which edges got you there**. If the problem asks for the route, a distance array is not a partial answer — it is the wrong shape.',
+    },
+    {
+      kind: 'p',
+      text: 'The fix costs one more array and one more line inside the loop: record which node you came from. Because a node is marked the instant it is first reached, and its parent was marked before it, the chain of parents is a valid route by construction — and it is **a** shortest route, because the parent was recorded on the shortest arrival.',
+    },
+    {
+      kind: 'code',
+      lang: 'typescript',
+      code: `function bfsWithParents(adj: number[][], start: number) {
+  const dist = new Array<number>(adj.length).fill(-1);
+  const parent = new Array<number>(adj.length).fill(-1);
+  dist[start] = 0;
+
+  const queue: number[] = [start];
+  let head = 0;
+  while (head < queue.length) {
+    const u = queue[head++];
+    for (const v of adj[u]) {
+      if (dist[v] !== -1) continue;
+      dist[v] = dist[u] + 1;
+      parent[v] = u;          // the only extra line. Everything above is identical.
+      queue.push(v);
+    }
+  }
+  return { dist, parent };
+}
+
+// Walk the parents back from the goal, then flip. parent[goal] is -1 exactly
+// when the goal was never reached — which is the whole "is there a path" test,
+// for free, with no second traversal.
+function pathTo(parent: number[], start: number, goal: number): number[] {
+  if (goal !== start && parent[goal] === -1) return [];
+
+  const path = [goal];
+  let cur = goal;
+  while (cur !== start) {
+    cur = parent[cur];
+    path.push(cur);
+  }
+  return path.reverse();
+}`,
+      caption:
+        'On a graph with a cycle, an unguarded walk of the parent pointers loops forever — the mark-on-push rule is what guarantees the chain is finite.',
+    },
+    {
+      kind: 'callout',
+      tone: 'warn',
+      title: 'The edge direction has to agree with your route',
+      text: 'Parents are written from `u` to `v` in the direction the traversal travelled. Walking them from the goal back to the start means the list reads in reverse, so reversing is not optional — and on a directed graph, forgetting it does not error, it produces a route that does not exist.',
+    },
+    {
+      kind: 'p',
+      text: 'All four of these patterns, written out in full, are collected in [traversal in practice](/learn/traversal-in-practice) — reachability, shortest path, connected components, and the grid version that shows up as island counting.',
+    },
+
     {
       kind: 'p',
       text: 'When the container empties, whatever was never marked was unreachable. Neither traversal throws, and neither reports a failure — they report a partial result, and the untouched nodes are the answer to a question you did not ask.',
@@ -217,7 +427,7 @@ export const BFS_AND_DFS: Article = {
       kind: 'ul',
       items: [
         '**Reachability, or a shortest hop count:** BFS. It is `O(V + E)` with no bad case, and no other traversal is faster on an unweighted graph.',
-        '**Reachability only, and you want the recursion visible:** DFS. The stack is the whole state, so an iterative DFS *is* the recursive one with the frames printed.',
+        '**Reachability only, and you want the recursion visible:** DFS. The stack is the whole state, so an iterative DFS **is** the recursive one with the frames printed.',
         '**Anything involving weights:** neither. [Dijkstra, Bellman-Ford and A*](/learn/shortest-paths).',
         '**Connecting everything as cheaply as possible:** neither. [Prim and Kruskal](/learn/minimum-spanning-trees).',
         "**A dependency order:** Kahn's algorithm. Deterministic given a fixed tie-break, which is unusual for a graph algorithm and is exactly what makes it testable.",
@@ -241,11 +451,11 @@ export const SHORTEST_PATHS: Article = {
   body: [
     {
       kind: 'p',
-      text: 'An unweighted graph has one sensible question — how many edges — and breadth-first answers it. The moment each edge carries a cost, that question splits into two, and the split is not symmetric: *how far* and *at what price*. Dijkstra and Bellman-Ford answer both; A* answers them with an opinion about which direction to try first.',
+      text: 'An unweighted graph has one sensible question — how many edges — and breadth-first answers it. The moment each edge carries a cost, that question splits into two, and the split is not symmetric: **how far** and **at what price**. Dijkstra and Bellman-Ford answer both; A* answers them with an opinion about which direction to try first.',
     },
     {
       kind: 'p',
-      text: 'All three run on one operation. **Relaxation**: for every edge `u → v` of weight `w`, if `dist[u] + w < dist[v]` then `dist[v] = dist[u] + w` and remember where it came from. The algorithms differ only in *the order they relax edges in*, and the order is the entire difference between a correct answer and a wrong one.',
+      text: 'All three run on one operation. **Relaxation**: for every edge `u → v` of weight `w`, if `dist[u] + w < dist[v]` then `dist[v] = dist[u] + w` and remember where it came from. The algorithms differ only in **the order they relax edges in**, and the order is the entire difference between a correct answer and a wrong one.',
     },
 
     { kind: 'h2', text: 'Dijkstra: settle the cheapest, and never look back' },
@@ -266,7 +476,7 @@ export const SHORTEST_PATHS: Article = {
     },
     {
       kind: 'p',
-      text: 'The `trap` preset is the whole reason BFS is not a substitute. A breadth-first search takes the direct 0 → 3 edge and calls it done, because one hop beats two. Dijkstra takes the detour and gets the right answer for the reason above — the queue ordering *is* the algorithm, exactly as it is in [the eight sorts](/learn/sorting-landscape) where the partition order decides the tree shape.',
+      text: 'The `trap` preset is the whole reason BFS is not a substitute. A breadth-first search takes the direct 0 → 3 edge and calls it done, because one hop beats two. Dijkstra takes the detour and gets the right answer for the reason above — the queue ordering **is** the algorithm, exactly as it is in [the eight sorts](/learn/sorting-landscape) where the partition order decides the tree shape.',
     },
     {
       kind: 'callout',
@@ -316,7 +526,7 @@ export const SHORTEST_PATHS: Article = {
     },
     {
       kind: 'p',
-      text: 'That the *same* three nodes keep improving is the diagnostic. A slow convergence looks like progress; a negative cycle looks like three numbers ticking down in lockstep, forever, which is why the implementation reports the literal string `NEGATIVE-CYCLE` rather than an array of infinities that no two languages agree on how to spell.',
+      text: 'That the **same** three nodes keep improving is the diagnostic. A slow convergence looks like progress; a negative cycle looks like three numbers ticking down in lockstep, forever, which is why the implementation reports the literal string `NEGATIVE-CYCLE` rather than an array of infinities that no two languages agree on how to spell.',
     },
     {
       kind: 'callout',
@@ -400,7 +610,7 @@ export const SHORTEST_PATHS: Article = {
     },
     {
       kind: 'p',
-      text: 'There is a fourth answer that the table implies without saying: if you need **every** distance rather than one route, you want Dijkstra, and A* is the wrong shape for the question no matter how good the estimate is. A* is a *search for one goal*; Dijkstra is a *computation for every node*.',
+      text: 'There is a fourth answer that the table implies without saying: if you need **every** distance rather than one route, you want Dijkstra, and A** is the wrong shape for the question no matter how good the estimate is. A** is a **search for one goal**; Dijkstra is a **computation for every node**.',
     },
 
     { kind: 'h2', text: 'What they all have in common' },
@@ -492,7 +702,7 @@ export const MIN_SPANNING_TREE: Article = {
     },
     {
       kind: 'p',
-      text: 'Its priority queue holds *edges*, not nodes, and each entry remembers which end is inside the tree. It also refuses stale entries — a queued edge whose other end has since been dragged in — which is the price of a lazy queue rather than a decision.',
+      text: 'Its priority queue holds **edges**, not nodes, and each entry remembers which end is inside the tree. It also refuses stale entries — a queued edge whose other end has since been dragged in — which is the price of a lazy queue rather than a decision.',
     },
     {
       kind: 'stepper',
@@ -556,7 +766,7 @@ export const MIN_SPANNING_TREE: Article = {
     { kind: 'h2', text: 'The case where they disagree, and what that means' },
     {
       kind: 'p',
-      text: 'Both presets below are the *same graph*: seven nodes, two components, nothing joining them. A spanning tree does not exist, so each algorithm returns the cheapest thing it can — and the two cheapest things are different.',
+      text: 'Both presets below are the **same graph**: seven nodes, two components, nothing joining them. A spanning tree does not exist, so each algorithm returns the cheapest thing it can — and the two cheapest things are different.',
     },
     {
       kind: 'stepper',
@@ -574,7 +784,7 @@ export const MIN_SPANNING_TREE: Article = {
     },
     {
       kind: 'p',
-      text: 'Eight against ten, from the same input. Neither is a bug, and the difference is exactly the difference in what each algorithm can see. **Prim answers "the cheapest way to connect everything reachable from where I started."** Kruskal answers "the cheapest way to connect every pair that is connected at all" — which on a disconnected graph is a forest, and the fact that no spanning tree exists *is* the output.',
+      text: 'Eight against ten, from the same input. Neither is a bug, and the difference is exactly the difference in what each algorithm can see. **Prim answers "the cheapest way to connect everything reachable from where I started."** Kruskal answers "the cheapest way to connect every pair that is connected at all" — which on a disconnected graph is a forest, and the fact that no spanning tree exists **is** the output.',
     },
     {
       kind: 'callout',

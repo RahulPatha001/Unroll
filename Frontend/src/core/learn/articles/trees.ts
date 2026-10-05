@@ -22,7 +22,7 @@ export const BINARY_SEARCH_TREES: Article = {
     },
     {
       kind: 'p',
-      text: 'The rule does not say anything about the *shape*. Which is the whole problem, and the whole subject of this article.',
+      text: 'The rule does not say anything about the **shape**. Which is the whole problem, and the whole subject of this article.',
     },
 
     { kind: 'h2', text: 'What the rule buys you' },
@@ -60,7 +60,7 @@ export const BINARY_SEARCH_TREES: Article = {
       kind: 'callout',
       tone: 'note',
       title: 'Which is why the traversal is not a sorting algorithm',
-      text: 'You could put a BST\'s in-order traversal in front of a reader as "sorting". It is `O(n)` once the tree exists and `O(n²)` to build, which is worse than insertion sort, and it uses `O(n)` space for something an array does in place. The sorted traversal is a *consequence*, not a method.',
+      text: 'You could put a BST\'s in-order traversal in front of a reader as "sorting". It is `O(n)` once the tree exists and `O(n²)` to build, which is worse than insertion sort, and it uses `O(n)` space for something an array does in place. The sorted traversal is a **consequence**, not a method.',
     },
 
     { kind: 'h2', text: 'The sorted-input trap' },
@@ -77,7 +77,7 @@ export const BINARY_SEARCH_TREES: Article = {
     },
     {
       kind: 'p',
-      text: "Height `n`. Every search is `O(n)`. Every insert is `O(n)`. Building the tree is `O(n²)` — 15 comparisons for six keys — which is *worse* than bubble sort on the same data, and it is not the implementation's fault. The insert code is identical in both runs; the worst case is entirely a property of arrival order, and nothing inside the insertion knows the difference.",
+      text: "Height `n`. Every search is `O(n)`. Every insert is `O(n)`. Building the tree is `O(n²)` — 15 comparisons for six keys — which is **worse** than bubble sort on the same data, and it is not the implementation's fault. The insert code is identical in both runs; the worst case is entirely a property of arrival order, and nothing inside the insertion knows the difference.",
     },
     {
       kind: 'callout',
@@ -99,7 +99,7 @@ export const BINARY_SEARCH_TREES: Article = {
       kind: 'ul',
       items: [
         '**No children.** Unlink it. Nothing moves, so the height provably cannot change — this is the one case with no argument attached.',
-        "**One child.** Lift the child into the node's slot. Safe because it was the *only* key that could have been on either side of the parent, so nothing is misfiled and no ordering is disturbed.",
+        "**One child.** Lift the child into the node's slot. Safe because it was the **only** key that could have been on either side of the parent, so nothing is misfiled and no ordering is disturbed.",
         '**Two children.** There is no way to just remove it — whichever subtree you lifted would end up on the wrong side of the parent. So you find the **in-order successor** (the smallest key in the right subtree), copy its value up, and delete the successor instead.',
       ],
     },
@@ -118,7 +118,7 @@ export const BINARY_SEARCH_TREES: Article = {
       kind: 'callout',
       tone: 'warn',
       title: 'The value moves, not the node',
-      text: 'In the two-children case the node stays exactly where it was — same parent, same children — holding a different key. So any index, iterator or node reference the caller was holding now refers to a *different key*. Code that caches `Node` handles across a delete has silently invalidated them, and the symptom shows up far from the cause.',
+      text: 'In the two-children case the node stays exactly where it was — same parent, same children — holding a different key. So any index, iterator or node reference the caller was holding now refers to a **different key**. Code that caches `Node` handles across a delete has silently invalidated them, and the symptom shows up far from the cause.',
     },
     {
       kind: 'p',
@@ -136,7 +136,7 @@ export const BINARY_SEARCH_TREES: Article = {
     },
     {
       kind: 'p',
-      text: 'After an insert, walk back up the path you came down and check the **balance factor** — left height minus right height — at each node. An AVL tree allows a difference of 1. A difference of 2 means a rotation is needed, and *which* rotation depends on two things, not one:',
+      text: 'After an insert, walk back up the path you came down and check the **balance factor** — left height minus right height — at each node. An AVL tree allows a difference of 1. A difference of 2 means a rotation is needed, and **which** rotation depends on two things, not one:',
     },
     {
       kind: 'ul',
@@ -156,11 +156,11 @@ export const BINARY_SEARCH_TREES: Article = {
       kind: 'callout',
       tone: 'note',
       title: 'A double rotation is two rotations, and the intermediate state is invalid',
-      text: 'Height alone cannot pick the rotation, which is why the fix-up also has to know where the new key came from. The frame you see between the two rotations is a tree that is *not* a valid AVL tree — and that is fine, because it is a step of the algorithm rather than a state anyone ever stores.',
+      text: 'Height alone cannot pick the rotation, which is why the fix-up also has to know where the new key came from. The frame you see between the two rotations is a tree that is **not** a valid AVL tree — and that is fine, because it is a step of the algorithm rather than a state anyone ever stores.',
     },
     {
       kind: 'p',
-      text: "Two details in the repair are worth naming because they are the ones people get wrong. The heights are recomputed **parent-first, then the promoted node**, because the promoted node's new height is measured over children that include the one you just recomputed. And the bookkeeping that says which side of its parent a node hangs on has to be rewritten too — forget it and the *numbers* stay right while the drawing loses half the tree, which is a genuinely unnerving bug to chase.",
+      text: "Two details in the repair are worth naming because they are the ones people get wrong. The heights are recomputed **parent-first, then the promoted node**, because the promoted node's new height is measured over children that include the one you just recomputed. And the bookkeeping that says which side of its parent a node hangs on has to be rewritten too — forget it and the **numbers** stay right while the drawing loses half the tree, which is a genuinely unnerving bug to chase.",
     },
 
     { kind: 'h2', text: 'What balancing actually buys' },
@@ -177,7 +177,7 @@ export const BINARY_SEARCH_TREES: Article = {
     },
     {
       kind: 'p',
-      text: "That is the whole value proposition, and it generalises to a hard guarantee: an AVL tree's height is bounded by about `1.44 · log₂(n+2)`, so a million nodes are at most **21 levels deep**. Every search, insert and delete is `O(log n)` on *every* input, with no randomness and no assumptions about arrival order.",
+      text: "That is the whole value proposition, and it generalises to a hard guarantee: an AVL tree's height is bounded by about `1.44 · log₂(n+2)`, so a million nodes are at most **21 levels deep**. Every search, insert and delete is `O(log n)` on **every** input, with no randomness and no assumptions about arrival order.",
     },
     {
       kind: 'table',
@@ -223,7 +223,7 @@ export const BINARY_SEARCH_TREES: Article = {
       kind: 'callout',
       tone: 'note',
       title: 'Measurement and repair are separate jobs',
-      text: 'The height traversal reports *which* nodes are out of balance and never fixes them — the rotation that would fix one happens at exactly that node, and doing it inline would turn a `O(n)` measurement into something that mutates the tree you are walking. This is the cleanest example in the app of "find the problem first, fix it second".',
+      text: 'The height traversal reports **which** nodes are out of balance and never fixes them — the rotation that would fix one happens at exactly that node, and doing it inline would turn a `O(n)` measurement into something that mutates the tree you are walking. This is the cleanest example in the app of "find the problem first, fix it second".',
     },
 
     { kind: 'h2', text: 'Choosing' },
