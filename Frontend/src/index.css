@@ -594,6 +594,165 @@ input[type="range"]::-moz-range-thumb:hover {
 }
 
 /* ------------------------------------------------------------------ *
+ * Motion, part 2b: the practice roadmap
+ *
+ * The timeline on `/roadmap` is the one page whose *shape* is the content — a
+ * reader's sense of "where am I, and what comes next" comes from the spine running
+ * down the left of the page and the nodes on it. So it gets its own vocabulary
+ * rather than reusing `rise-in` for everything.
+ *
+ * The rule from part two still governs: **outside the player, motion is decoration.**
+ * Nothing here animates a layout box that the reader is reading from — the one
+ * exception is `disclosure`, which animates a panel the reader has just clicked, and
+ * that uses the grid `0fr → 1fr` technique so it does not need a hard-coded height.
+ * `prefers-reduced-motion` above neutralises all of it.
+ * ------------------------------------------------------------------ */
+
+/**
+ * The timeline's vertical spine.
+ *
+ * A `scaleY` from the top rather than a height animation, because the spine is a
+ * decorative line: scaling it costs one composited property, and it is the only way
+ * to draw a line *downwards* that does not animate a box. `transform-origin: top` is
+ * the whole difference between "the roadmap is being drawn" and "a line appears".
+ */
+@keyframes rail-grow {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+
+@utility rail-grow {
+  animation: rail-grow 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: top;
+}
+
+/**
+ * A phase node.
+ *
+ * Opacity only, like `glow-breathe`, and slower than anything else on the site. The
+ * node is the reader's anchor while scrolling a long page, so it must be steady: a
+ * node that pulses visibly competes with the text for attention, and the whole point
+ * of the spine is that it can be ignored.
+ */
+@keyframes node-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@utility node-breathe {
+  animation: node-breathe 3.2s ease-in-out infinite;
+}
+
+/**
+ * A checkmark being ticked.
+ *
+ * The one flourish on this page, and it earns its place: ticking a question is the
+ * only destructive-feeling action in the app (the list permanently changes), and a
+ * pop is the confirmation that says "yes, that was recorded". `pop-in` already
+ * exists for the player, but this scales the *glyph* from 0.6 rather than fading a
+ * box, because the thing that moved is the tick.
+ */
+@keyframes tick-pop {
+  0% {
+    transform: scale(0.55);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@utility tick-pop {
+  animation: tick-pop 260ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/**
+ * An open/closed panel that animates its own height.
+ *
+ * The `grid-template-rows: 0fr → 1fr` trick, and it is here rather than as a class
+ * per component because it is the only reliable way to transition to "whatever
+ * height the content turns out to be". A topic card's expanded height depends on how
+ * many questions the learner has and which level groups exist, so any hard-coded
+ * height animates to the wrong number and then snaps.
+ *
+ * `min-height: 0` on the child is the part that makes it work: a grid item defaults
+ * to `min-height: auto`, which refuses to shrink below its content and defeats the
+ * whole effect.
+ */
+@utility disclosure {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@utility disclosure-open {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/**
+ * The moving sheen on a progress bar.
+ *
+ * A gradient that slides across a filled bar. `--fill` is the fill percentage and
+ * `--sheen` is the animation-delay, set inline by the caller so each phase bar
+ * shimmers a little after the previous one rather than in unison.
+ */
+@keyframes bar-sheen {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+@utility bar-sheen {
+  animation: bar-sheen 2.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: var(--sheen, 0ms);
+}
+
+/**
+ * A faint dot grid for the roadmap hero.
+ *
+ * `page-backdrop` is a gradient wash, which is right for a page of prose and wrong for
+ * a page that opens with a *plan* — a wash reads as a landing page, and the roadmap
+ * is a tool. Dots read as a worksheet. Two layers so it does not moiré where the
+ * spacing is not a whole number of pixels, which is the usual reason a `radial-gradient`
+ * dot grid looks broken at 1× but fine in a design tool.
+ */
+@utility dot-grid {
+  background-image:
+    radial-gradient(
+      circle at center,
+      color-mix(in srgb, var(--color-border-strong) 60%, transparent) 1px,
+      transparent 1px
+    ),
+    radial-gradient(
+      circle at center,
+      color-mix(in srgb, var(--color-border-subtle) 40%, transparent) 1px,
+      transparent 1px
+    );
+  background-size:
+    28px 28px,
+    140px 140px;
+}
+
+/* ------------------------------------------------------------------ *
  * Motion, part three: the redesigned player stage
  *
  * The player used to stack four separate bars — header, narration, viewport,

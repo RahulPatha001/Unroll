@@ -120,6 +120,37 @@ for (const vp of WIDTHS) {
   });
 }
 
+/**
+ * The roadmap, once the first topic is open.
+ *
+ * The one page on the site whose *shape* is content — the timeline spine and the
+ * per-topic progress bars are how a reader knows where they are, so they are what a
+ * baseline should catch changing. A regression that collapsed the spine to a single
+ * column on a phone would pass every behavioural test in `e2e/pages.spec.ts`.
+ *
+ * No `settlePage` here: that helper waits for a materialised trace, which this page
+ * has none of. The two infinite CSS animations — the breathing phase nodes and the
+ * progress sheen — are frozen by `SHOT`'s `animations: 'disabled'`, so the baseline is
+ * a deterministic frame rather than whichever one the compositor happened to be on.
+ */
+for (const vp of WIDTHS) {
+  test(`page roadmap at ${vp.tag}`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width: vp.width, height: vp.height });
+    await page.goto(`${baseURL ?? ''}/roadmap`);
+
+    await expect(page.getByRole('heading', { name: /A roadmap, not a/i, level: 1 })).toBeVisible();
+    // All four phases, not one: a partial timeline is exactly what a phase that failed
+    // to render would look like, and the spine is what connects them.
+    await expect(page.getByRole('heading', { level: 2 })).toHaveCount(4);
+    // The first topic is open by default, so the baseline contains an expanded card —
+    // which is where the badges, the level dots and the tick boxes live.
+    await expect(page.locator('[data-topic="complexity-and-big-o"]')).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+
+    await expect(page).toHaveScreenshot(`page-roadmap-${vp.tag}.png`, SHOT);
+  });
+}
+
 /** The 404, because a blank page is the failure this page exists to prevent. */
 for (const vp of WIDTHS) {
   test(`page not-found at ${vp.tag}`, async ({ page, baseURL }) => {

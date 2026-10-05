@@ -40,6 +40,7 @@ import { NotFound } from './NotFound.tsx';
  * | `/?algo=bubble-sort` | the player, with the full URL contract intact |
  * | `/learn` | the guides index |
  * | `/learn/:slug` | one guide |
+ * | `/roadmap` | the practice roadmap — an ordered curriculum of 324 problems |
  * | `/compare` | side by side |
  * | anything else | 404 |
  *
@@ -80,6 +81,19 @@ const ComparePage = lazy(() =>
  * perfectly legitimate — it is only the *timing* that is wrong.
  */
 const LearnIndex = lazy(() => import('./LearnIndex.tsx').then((m) => ({ default: m.LearnIndex })));
+/*
+ * `Roadmap` is lazy for the same reason as every other page above, and it is the one
+ * page where it matters most: `core/roadmap/index.ts` statically imports all 22
+ * topics and 324 questions. An eager import would put the whole curriculum — a few
+ * tens of kB of text — into the entry chunk that every visitor to
+ * `/?algo=bubble-sort` pays to download.
+ *
+ * This is the identical trap `LearnIndex` fell into, documented above, and the
+ * measurement is what caught it there: 202.8 kB gzip against a 200 kB budget. The way
+ * to not repeat it is to add the import to the route table as a `lazy()`, and to run
+ * `node tools/budget.mjs` after adding one.
+ */
+const Roadmap = lazy(() => import('./Roadmap.tsx').then((m) => ({ default: m.Roadmap })));
 
 /**
  * A lazy route's loading state.
@@ -141,6 +155,12 @@ function LearnIndexRoute() {
   return <LearnIndex pathname={pathname} onNavigate={(to) => void navigate(to)} />;
 }
 
+function RoadmapRoute() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  return <Roadmap pathname={pathname} onNavigate={(to) => void navigate(to)} />;
+}
+
 function CatchAllRoute() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -154,6 +174,7 @@ export function AppRoutes() {
         <Route path="/" element={<RootRoute />} />
         <Route path="/learn" element={<LearnIndexRoute />} />
         <Route path="/learn/:slug" element={<ArticleRoute />} />
+        <Route path="/roadmap" element={<RoadmapRoute />} />
         <Route path="/compare" element={<CompareRoute />} />
         {/* Aliases, so a link written either way lands in the same place. */}
         <Route path="/compare/:a" element={<CompareRoute />} />

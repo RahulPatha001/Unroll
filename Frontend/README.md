@@ -42,6 +42,7 @@ content-sized one made the viewport twitch on every frame.
 | `/?algo=<id>` | the visualiser: set up the input and watch it run |
 | `/learn` | guides |
 | `/learn/<slug>` | one guide, with the visualisation embedded in it |
+| `/roadmap` | the practice roadmap — 22 topics, 324 problems, six sites |
 | `/compare` | two algorithms, one input, one transport |
 | anything else | 404, with the way out on it |
 
@@ -63,6 +64,20 @@ break" next to a stepper you can drag is the thing a static illustration of bubb
 sort cannot be. `core/learn/` holds the prose as plain data — no React, so the
 articles are testable in Node and every algorithm and preset an article references
 is checked before it ships — and `features/learn/` renders it.
+
+**The roadmap is ordered by dependency, not by popularity.** `/roadmap` is 22
+topics across four phases, and 324 problems drawn from LeetCode, InterviewBit,
+CodeChef, HackerRank, HackerEarth and GeeksforGeeks at easy, medium and hard. Every
+DSA page defaults to a "top 100 problems" list, and that list is useless to a
+beginner: it is sorted by popularity rather than by dependency, so it hands you Two
+Sum before you know what a hash map is. You end up reaching for a data structure you
+cannot yet name. Here the order *is* the content, and each topic links to the
+algorithms in the visualiser and the guides in `/learn` beside the problems, so a
+question can be watched, read, and then attempted in one place.
+
+Links are the one thing on this page that cannot be checked in CI, so they are
+checked by hand and by an on-demand script instead — see
+`npm run verify:roadmap` below.
 
 ---
 
@@ -218,6 +233,42 @@ silently once already and nothing noticed for weeks:
   algorithm and every preset.
 - `src/core/learn/learn.test.ts` — every article's `algoId`, every `stepper`
   preset and every table's shape.
+- `src/core/roadmap/roadmap.test.ts` — every topic's `algoId` resolves in the
+  catalogue, every `learnSlug` resolves to an article, every question's URL host
+  matches its declared platform, no problem is listed twice, and every phase is
+  reachable.
+
+### The roadmap's links are checked by a script, not a test
+
+324 links to other people's sites cannot be verified in CI, and a network check in
+CI is a test that fails for reasons unrelated to the code. Three of the six
+platforms actively refuse non-browsers:
+
+| Platform | Status to a `fetch` | How it is actually verified |
+| --- | --- | --- |
+| LeetCode | **403** | `GET /api/problems/all/`, match the slug |
+| HackerRank | **404** on every deep link | `GET /rest/contests/master/challenges`, paged |
+| InterviewBit | **404** on every deep link | not machine-checkable; `skipped`, with the reason printed |
+| GeeksforGeeks | 200 or a rendered error page | one request per URL, resolved page title |
+| CodeChef | 200, with a generic SPA shell for a bad code | one request per URL, page title |
+| HackerEarth | clean 200/404 | one request per URL, status code |
+
+So `npm run verify:roadmap` uses each platform's own catalogue where one exists,
+and says which method produced every result:
+
+```
+npm run verify:roadmap                        # everything
+npm run verify:roadmap -- --only=leetcode     # one platform
+npm run verify:roadmap -- --concurrency=1 --pause=1500   # for rate-limited sites
+```
+
+HackerEarth and GeeksforGeeks start refusing connections after a burst of parallel
+requests, so a run that finds everything suddenly dead is usually *throttling*, not
+breakage — the tool distinguishes the two and reports a failed connection as
+`skipped`, never as `dead`. Three real bugs in the data were caught this way: a
+GeeksforGeeks slug that does not exist (`/problems/two-sum/`), CodeChef's `PALL01`
+being The Block Game rather than a palindrome problem, and HackerRank's
+Sherlock-and-Permutations being plural.
 
 ### The budget tool measures the graph, not the filenames
 
@@ -252,6 +303,11 @@ goes unnoticed until someone shares the link:
 | --- | --- | --- |
 | Cloudflare Pages | `public/_redirects` | `/*  /index.html  200` |
 | Vercel | `vercel.json` | `rewrites`, **not** `routes` |
+
+Both are catch-alls, so `/roadmap` and any future path are covered by the same two
+rules. That is also why `tests/e2e/pages.spec.ts` navigates *directly* to each page
+against a production build: on a dev server Vite rewrites unknown paths for free, so
+a missing rewrite is a bug that passes every local check and 404s in production.
 
 `rewrites` rather than `routes` on Vercel because rewrites run *after* the
 filesystem check, so `/assets/<name>.js` still resolves to the real file; `routes`

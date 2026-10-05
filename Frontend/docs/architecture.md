@@ -300,6 +300,7 @@ src/
 │   ├── LearnIndex.tsx        the guides index (lazy)
 │   ├── ArticlePage.tsx       one guide (lazy)
 │   ├── ComparePage.tsx       two algorithms, one input (lazy)
+│   ├── Roadmap.tsx           the practice roadmap (lazy) — 22 topics, 324 problems
 │   ├── NotFound.tsx          the `*` route
 │   ├── CommandPalette.tsx    ⌘K shortcut + lazy wrapper (see below)
 │   ├── CommandPaletteDialog.tsx  the dialog itself — lazy, because it reaches
@@ -311,6 +312,7 @@ src/
 │   │                         Scrubber (the shared range-with-a-track)
 │   ├── viewport/             one component per frame kind, each lazily loaded
 │   ├── learn/                ArticleBody (blocks → elements) + EmbeddedStepper
+│   ├── roadmap/              progress store, TopicCard disclosure, question row, badges
 │   ├── code-panel/           the anchor ↔ line highlight
 │   ├── controls/             header: complexity, presets, params
 │   ├── input/                the custom-input editor (lazy)
@@ -327,7 +329,8 @@ tools/
 │   ├── harness.ts            compile, run, diff, report
 │   └── drivers/              one shared driver per language
 ├── budget.mjs                initial-payload budget (walks the import graph)
-└── checkTokens.mjs           token utilities actually emit CSS
+├── checkTokens.mjs           token utilities actually emit CSS
+└── verifyRoadmapLinks.ts     on-demand: are the 324 external links still alive?
 
 tests/
 ├── e2e/                      Playwright: app.spec.ts (the player), pages.spec.ts
@@ -337,7 +340,7 @@ tests/
 
 ### Routing, and why `/` is conditional
 
-The app has six routes. The non-obvious one is the root, which renders the browse
+The app has seven routes. The non-obvious one is the root, which renders the browse
 page at `/` and the visualiser at `/?algo=<id>` — the split is **the presence of the
 `algo` key**, not the path.
 
@@ -350,7 +353,8 @@ What is eager is as deliberate as what is lazy. `App` — the player — is **no
 code-split, because it is the default destination for every link this app has ever
 shared and lazy-loading it would add a round trip to the most common entry in the
 product. The pages pay instead: `/learn`, `/learn/:slug` and `/compare` each carry a
-trace builder, and none of that is in the entry chunk.
+trace builder, `/roadmap` carries the whole problem curriculum, and none of that is in
+the entry chunk.
 
 The one that was *not* obvious is `LearnIndex`. It is a list of links, but it
 imports the article registry, and that statically imports every article — so an
@@ -959,6 +963,10 @@ Getting there took two passes, and the second one is the interesting one:
 - **`LearnIndex` is lazy.** This was the first fix, and `routes.tsx` carries a long
   note on it: the page looks like a list of links, but it imports the article
   registry, which statically imports every article.
+- **`Roadmap` is lazy, for the same reason with the same trap.** 22 topics and 324
+  questions is 22.8 kB gzip of data, and it is in the chunk that contains
+  `/roadmap` and nowhere else. An eager import would put the whole curriculum in the
+  entry chunk that every visitor to `/?algo=bubble-sort` pays for.
 - **`CommandPalette` is lazy, and the wrapper is separated from the dialog.** The
   palette searches articles, so it needs the same registry — and `Browse.tsx`, which
   is eager because it is the home page, renders the palette. So the leak reopened,
@@ -980,6 +988,93 @@ nor `boundary.test.ts` can catch this class of bug: every import involved is
 legitimate on its own, and only the *timing* is wrong. `tools/budget.mjs` is the only
 thing that sees it, which is the argument for keeping it.
 
+
+---
+
+## The roadmap: 324 problems, and why links are not a test
+
+`core/roadmap/` is the fourth data layer, after the algorithms, the articles and the
+palette's search vocabulary. It is plain data for the same reason `core/learn/` is —
+no React, no DOM — which is what lets `roadmap.test.ts` resolve every topic's
+`algoId` against `CATALOG_BY_ID` and every `learnSlug` against `getArticle` in plain
+Node.
+
+It is **not** an article, though, and three things forced it out of that shape:
+
+1. **A question is a row, not prose.** 324 problems each carrying a platform and a
+   difficulty is tabular data. Rendered as a `table` block, platform and difficulty are
+   cells of *text*, so they cannot be filtered, counted, sorted or ticked off — and the
+   filtering and the progress are the entire value of the page.
+2. **A question needs an identity that survives a rename.** Progress is persisted as
+   ids in `localStorage`. An article's identity is its URL slug; these problems live on
+   someone else's site and have no URL here at all, so the id is authored and asserted
+   unique.
+3. **The references point outward to two other registries.** A topic names algorithms
+   and guides, and neither can be a string inside a paragraph or the page could not
+   link into the visualiser or be checked for rot.
+
+### The three ways this page rots, and only one of them is checkable in CI
+
+| Failure | Symptom | Caught by |
+| --- | --- | --- |
+| A link points at something that no longer exists | Renders, has a valid `href`, 404s for the reader | `verify:roadmap`, **on demand** |
+| A link points at the wrong platform | Renders identically; sends the reader elsewhere | `roadmap.test.ts`, offline |
+| An `algoId` / `learnSlug` rotted | Renders a link to `/?algo=typo` | `roadmap.test.ts`, offline |
+
+The middle row is why `platform → host` is an *invariant* rather than a convention. A
+paste that kept the HackerRank URL and lost the CodeChef label is undetectable by
+reading the URL, and it is the failure a reader notices first.
+
+### Why the link checker is not a test
+
+Three of the six platforms actively refuse non-browsers: LeetCode returns **403**,
+and HackerRank and InterviewBit return **404** for every deep link because they are
+client-routed single-page apps whose servers have no opinion about which problem
+exists. A naive checker would therefore report 135 working links as broken on a clean
+commit and be deleted within a week.
+
+`tools/verifyRoadmapLinks.ts` uses each platform's *own* source of truth where one
+exists — LeetCode's `/api/problems/all/`, HackerRank's paged challenge index — and
+prints the method used for every row. InterviewBit is reported as `skipped`, with the
+reason, so a reader can tell "not checked" from "broken". The lesson is the one
+`boundary.test.ts` and `budget.mjs` have each taught in a different costume: **the
+check that cannot be automated must say out loud what it did not do.**
+
+Two further lessons came from writing it:
+
+- **A failed connection is not a dead link.** HackerEarth and GeeksforGeeks refuse
+  connections after a burst of parallel requests, which looks exactly like "every link
+  on this platform is broken". Network failures are `skipped`; a truncated catalogue is
+  a loud note, never a verdict.
+- **A run that verifies nothing must not look like a run that passed.** An
+  off-by-one in a `--concurrency=` slice produced `Number('') === 0`, zero workers, and
+  an instant "clean" report of 324 undefined rows. The flag is now validated, because
+  the worst outcome for a checker is a green run that checked nothing.
+
+### Filtering narrows, it never rearranges
+
+The obvious design — sort matches to the top, or drop topics with no matches — is
+wrong for this page specifically. The reader's sense of *where they are* is the entire
+content, so a topic with two matching questions still renders, with the rest reported
+as a count, and the phases keep their order. The one deliberate exception is the "up
+next" card, which ignores the filter on purpose: someone who filters to "graph"
+mid-topic is *looking* for graph questions, and being told to go and do Two Sum is a
+worse answer than being told where they left off.
+
+### Progress is local, and the page says so
+
+There is no account and no server, so ticks live in `localStorage`: they survive a
+reload and do not survive clearing site data or moving browser. A reader planning eight
+weeks of study needs to know which kind of record that is, so the hero states it
+rather than implying durability somewhere.
+
+`features/roadmap/progressStore.ts` is a *separate* store from `app/library.ts`
+(favourites and recents) for three reasons, in increasing order of how much it would
+have hurt: different keys and lifetimes; **opposite failure semantics** — a favourite
+that cannot be saved undoes itself, while a tick must not silently revert, so the same
+`writeJson` failure is handled the same way and *reported* differently; and the
+bookkeeping limit, which is eight for a recency list precisely because truncating
+solved questions would delete real progress.
 
 ---
 

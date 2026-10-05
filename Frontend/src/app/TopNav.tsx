@@ -1,4 +1,4 @@
-import { BookOpen, Columns2, Search } from 'lucide-react';
+import { BookOpen, Columns2, Route, Search } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { cn } from '../lib/utils.ts';
 
@@ -45,6 +45,7 @@ export interface NavLink {
 export const NAV_LINKS: NavLink[] = [
   { to: '/', label: 'Algorithms', icon: <Search className="size-3.5" /> },
   { to: '/learn', label: 'Learn', icon: <BookOpen className="size-3.5" /> },
+  { to: '/roadmap', label: 'Roadmap', icon: <Route className="size-3.5" /> },
   { to: '/compare', label: 'Compare', icon: <Columns2 className="size-3.5" /> },
 ];
 

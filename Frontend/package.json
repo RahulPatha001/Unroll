@@ -22,6 +22,7 @@
     "snapshots:update": "npm run build && npm run snapshots:reset && UPDATE_LAYOUT=1 playwright test --project=visual --update-snapshots",
     "test:e2e:install": "playwright install chromium",
     "check:tokens": "node tools/checkTokens.mjs",
+    "verify:roadmap": "node tools/verifyRoadmapLinks.ts",
     "snapshots:reset": "node tools/resetSnapshots.mjs"
   },
   "dependencies": {

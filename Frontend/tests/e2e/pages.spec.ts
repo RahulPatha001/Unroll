@@ -431,10 +431,248 @@ test('the top nav reaches every section and marks the current one', async ({ pag
   await expect(page).toHaveURL(/\/learn$/);
   await expect(nav.getByRole('link', { name: 'Learn' })).toHaveAttribute('aria-current', 'page');
 
+  await nav.getByRole('link', { name: 'Roadmap' }).click();
+  await expect(page).toHaveURL(/\/roadmap$/);
+  await expect(nav.getByRole('link', { name: 'Roadmap' })).toHaveAttribute('aria-current', 'page');
+
   await nav.getByRole('link', { name: 'Compare' }).click();
   await expect(page).toHaveURL(/\/compare$/);
   await expect(nav.getByRole('link', { name: 'Compare' })).toHaveAttribute('aria-current', 'page');
   await noErrors(page);
+});
+
+/**
+ * The practice roadmap.
+ *
+ * Its own `describe` because it is a different kind of page from the rest of this file:
+ * the other tests assert that you can *reach* a page, and these assert that a page
+ * with three hundred interactive rows still behaves. The recurring assertions are the
+ * interesting ones — a disclosure that does not open, a filter that empties the page
+ * instead of narrowing it, and progress that does not survive a reload are all
+ * invisible to a render check.
+ */
+test.describe('the practice roadmap', () => {
+  test('cold-loads, and opens with the curriculum in order', async ({ page }) => {
+    /*
+     * A cold `page.goto('/roadmap')` against `vite preview`, not a dev server.
+
+     * This is the assertion that a missing SPA rewrite cannot pass: Vite dev rewrites
+     * unknown paths for free, so a dev-server run would go green on a page that hard
+     * 404s on refresh and on every shared link in production.
+     */
+    await page.goto('/roadmap');
+
+    await expect(page.getByRole('heading', { name: /A roadmap, not a/i, level: 1 })).toBeVisible();
+
+    // Four phases, in the order `PHASE_LIST` declares. Asserted by name rather than by
+    // count, because a reordered roadmap still has four phases and the order is the
+    // entire premise of the page.
+    const headings = page.getByRole('heading', { level: 2 });
+    await expect(headings).toHaveText([
+      'Foundation',
+      'Core patterns',
+      'Structures',
+      'Advanced & interview-ready',
+    ]);
+
+    // And the one card that is open by default, so a reader learns the shape.
+    const first = page.locator('[data-topic="complexity-and-big-o"]');
+    await expect(first.getByRole('button', { name: /Thinking in Big O/ })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+    await noErrors(page);
+  });
+
+  test('a topic disclosure opens, closes, and takes its links out of the tab order', async ({
+    page,
+  }) => {
+    await page.goto('/roadmap');
+
+    const card = page.locator('[data-topic="two-pointers"]');
+    const toggle = card.getByRole('button', { name: /Two pointers/ });
+    const panel = card.locator('#topic-panel-two-pointers');
+
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    // `inert` rather than unmounting: the panel stays in the DOM so its height can
+    // transition, which means without it the closed topic's links would stay focusable
+    // and keyboard users would tab into an invisible region.
+    await expect(panel.locator('div[inert]')).toHaveCount(1);
+
+    await toggle.click();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(panel.locator('div[inert]')).toHaveCount(0);
+
+    // The panel has real content, not just chrome.
+    await expect(card.getByRole('link', { name: 'Two Sum' }).first()).toBeVisible();
+    await noErrors(page);
+  });
+
+  test('every question links to a real external problem, on the site it claims', async ({
+    page,
+  }) => {
+    await page.goto('/roadmap');
+
+    /*
+     * The reader-facing half of the platform check `roadmap.test.ts` does offline.
+
+     * That test proves the data says the right host; this proves the page renders an
+     * `href` that carries it, opens in a new tab, and does not swallow the click —
+     * three separate ways a link can be structurally present and still not work.
+     */
+    const links = page.getByRole('link', { name: /^(Two Sum|Valid Parentheses|Two Sum II)/ });
+    await expect(links.first()).toBeVisible();
+
+    const row = links.first();
+    await expect(row).toHaveAttribute('target', '_blank');
+    // `noopener` is not decoration: without it the opened page can reach back through
+    // `window.opener`, and this is the only place in the app that opens third parties.
+    await expect(row).toHaveAttribute('rel', /noopener/);
+    await expect(row).toHaveAttribute('href', /^https:\/\//);
+    await noErrors(page);
+  });
+
+  test('a topic links into the visualiser and into a guide', async ({ page }) => {
+    await page.goto('/roadmap');
+
+    const card = page.locator('[data-topic="sliding-window"]');
+    await card.getByRole('button', { name: /Sliding window/ }).click();
+
+    // The seam between the three halves of the product: a topic on the roadmap links to
+    // the live visualisation and to the written guide.
+    await card
+      .getByRole('link', { name: /Longest Substring Without Repeating Characters/ })
+      .first()
+      .click();
+    await expect(page).toHaveURL(/algo=longest-substring/);
+    await expect(page.getByRole('region', { name: 'Algorithm visualisation' })).toBeVisible();
+    await noErrors(page);
+  });
+
+  test('ticking a question updates the topic, the phase and the hero', async ({ page }) => {
+    await page.goto('/roadmap');
+
+    const card = page.locator('[data-topic="complexity-and-big-o"]');
+    const tick = card.getByRole('checkbox', { name: /FLOW006/ });
+    await expect(tick).not.toBeChecked();
+
+    await tick.check();
+
+    // The row's own count, the phase's bar and the hero all read from one store, so a
+    // bug in any of the three is a visible disagreement. Asserting all three is what
+    // catches "the checkbox worked and nothing else did".
+    await expect(tick).toBeChecked();
+    // The topic's own counter, and then the two bars that aggregate it. Asserting the
+    // hero and the *phase* separately is what catches a bug where one of them reads a
+    // different store — they are rendered by different components three levels apart.
+    await expect(card.getByText('1/7')).toBeVisible();
+    // "Not zero" rather than an exact percentage: the phase bar is one tick out of 47
+    // questions, so its exact value moves whenever the roadmap is edited, and a test
+    // that breaks when someone adds a problem is a test that gets deleted instead.
+    const foundation = page.getByRole('progressbar', { name: 'Foundation progress' });
+    await expect(foundation).not.toHaveAttribute('aria-valuenow', '0');
+    /*
+     * The hero's *number* rather than its percentage. One tick out of 324 rounds to
+     * 0% on the overall bar, so asserting the bar would be asserting that the bar
+     * does not move — which is true, and not a property worth pinning down. The exact
+     * figure beside it is what the reader can act on, and asserting both is what
+     * documents why the two are shown at different precisions.
+     */
+    await expect(page.getByText('1/324')).toBeVisible();
+    // And the phases after it are untouched, which is what proves the tick was applied
+    // to one topic rather than smeared across the page.
+    await expect(page.getByRole('progressbar', { name: 'Structures progress' })).toHaveAttribute(
+      'aria-valuenow',
+      '0',
+    );
+
+    // The "up next" card must move off the question that was just ticked — that card is
+    // the page's main call to action, and a stale one is worse than none.
+    await expect(page.getByText('Up next')).toBeVisible();
+    await noErrors(page);
+  });
+
+  test('progress survives a reload, and clearing it works', async ({ page }) => {
+    await page.goto('/roadmap');
+
+    const tick = page
+      .locator('[data-topic="complexity-and-big-o"]')
+      .getByRole('checkbox', { name: /FLOW006/ });
+    await tick.check();
+    await expect(tick).toBeChecked();
+
+    // The regression this guards: progress that lives only in component state. A
+    // roadmap whose ticks vanish on reload is a checklist, not a roadmap.
+    await page.reload();
+    await expect(
+      page
+        .locator('[data-topic="complexity-and-big-o"]')
+        .getByRole('checkbox', { name: /FLOW006/ }),
+    ).toBeChecked();
+
+    await page.getByRole('button', { name: 'Clear all progress' }).click();
+    await expect(
+      page
+        .locator('[data-topic="complexity-and-big-o"]')
+        .getByRole('checkbox', { name: /FLOW006/ }),
+    ).not.toBeChecked();
+    await expect(page.getByRole('button', { name: 'Clear all progress' })).toHaveCount(0);
+    await noErrors(page);
+  });
+
+  test('filtering narrows the questions without removing the topics', async ({ page }) => {
+    await page.goto('/roadmap');
+    const cards = page.locator('[data-topic]');
+    // Waited for, not just counted: `/roadmap` is lazy, so `goto` resolves while the
+    // route's `Suspense` fallback is still on screen. A bare `count()` here reads 0 and
+    // the assertion below would then be comparing nothing to nothing.
+    await expect(cards.first()).toBeVisible();
+    const before = await cards.count();
+    expect(before).toBeGreaterThan(15);
+
+    await page.getByRole('button', { name: /^HackerRank/ }).click();
+
+    /*
+     * The important half. Filtering a roadmap by site could reasonably either hide
+     * non-matching topics or keep them with fewer problems, and only one of those is
+     * defensible: the page's value is the *order*, so a search must not delete the
+     * context the reader found the answer in.
+     */
+    await expect.poll(() => cards.count()).toBe(before);
+    await expect(page.getByText('match the filter').first()).toBeVisible();
+
+    await page.getByRole('button', { name: 'Reset' }).click();
+    await expect(page.getByText('match the filter')).toHaveCount(0);
+    await noErrors(page);
+  });
+
+  test('a search that matches nothing says so, and offers a way out', async ({ page }) => {
+    await page.goto('/roadmap');
+    await page.getByLabel('Filter roadmap questions').fill('zzzznotathing');
+
+    await expect(page.getByText('Nothing matches those filters')).toBeVisible();
+    // The empty state has to state that the roadmap is still intact, or a reader who
+    // filtered by accident concludes they lost the page.
+    await expect(page.getByText(/only hides\s+problems/)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Clear all filters' }).click();
+    await expect(page.locator('[data-topic]').first()).toBeVisible();
+    await noErrors(page);
+  });
+
+  test('the roadmap does not overflow sideways on a phone', async ({ page }) => {
+    // The same companion check the browse page has. The filter bar and the phase
+    // progress row are the two places that could push a 324-row page wide.
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/roadmap');
+
+    await expect(page.locator('[data-topic]').first()).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow, 'the roadmap scrolls sideways').toBeLessThanOrEqual(0);
+    await noErrors(page);
+  });
 });
 
 test('back from the browse page returns to the visualiser', async ({ page }) => {
